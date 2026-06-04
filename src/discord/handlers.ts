@@ -23,10 +23,23 @@ function discordThreadLink(threadId: string): string {
 
 function attachmentLinks(message: Message | null): string {
   if (!message || message.attachments.size === 0) {
-    return "not_available";
+    return "";
   }
 
-  return message.attachments.map((attachment) => attachment.url).join("\n");
+  return message.attachments.map((attachment) => `- ${attachment.url}`).join("\n");
+}
+
+function formatAuthor(message: Message | null, fallbackAuthorId: string | null): string {
+  if (!message) {
+    return valueOrNotAvailable(fallbackAuthorId);
+  }
+
+  const displayName = message.member?.displayName ?? message.author.globalName ?? message.author.username;
+  const username = message.author.discriminator === "0"
+    ? `@${message.author.username}`
+    : `${message.author.username}#${message.author.discriminator}`;
+
+  return `${displayName} (${username}, ${message.author.id})`;
 }
 
 function buildTrelloDescription(input: {
@@ -34,21 +47,37 @@ function buildTrelloDescription(input: {
   thread: ThreadChannel;
   starterMessage: Message | null;
 }): string {
-  return [
-    "Discord ticket",
+  const attachments = attachmentLinks(input.starterMessage);
+  const lines = [
+    "## Discord ticket",
     "",
-    `Автор Discord: ${valueOrNotAvailable(input.authorId)}`,
+    `**Автор:** ${formatAuthor(input.starterMessage, input.authorId)}`,
+    `**Тема:** ${input.thread.name}`,
+    `**Ссылка:** ${discordThreadLink(input.thread.id)}`,
+    "",
+    "### Описание",
+    valueOrNotAvailable(input.starterMessage?.content),
+  ];
+
+  if (attachments) {
+    lines.push("", "### Вложения", attachments);
+  }
+
+  lines.push(
+    "",
+    "---",
+    "<details>",
+    "<summary>Технические данные</summary>",
+    "",
+    `Discord author id: ${valueOrNotAvailable(input.authorId)}`,
     `Discord thread id: ${input.thread.id}`,
     `Discord channel id: ${valueOrNotAvailable(input.thread.parentId)}`,
     `Discord guild id: ${config.discord.guildId}`,
-    `Discord link: ${discordThreadLink(input.thread.id)}`,
     "",
-    "Текст тикета:",
-    valueOrNotAvailable(input.starterMessage?.content),
-    "",
-    "Вложения:",
-    attachmentLinks(input.starterMessage),
-  ].join("\n");
+    "</details>",
+  );
+
+  return lines.join("\n");
 }
 
 async function fetchStarterMessage(thread: ThreadChannel): Promise<Message | null> {
