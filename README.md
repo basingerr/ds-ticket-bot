@@ -3,8 +3,16 @@
 Small bridge bot:
 
 - Discord Forum Post creates a Trello card.
-- Trello card list move posts a status update back into the Discord thread.
+- Trello card list move updates a single Discord status embed in the thread.
 - SQLite stores `discordThreadId <-> trelloCardId`.
+- `/sync-ticket` manually reconciles status from Trello.
+- Trello webhook updates are debounced to avoid status spam during rapid card moves.
+
+Production:
+
+```text
+https://tickets.basinger.cc
+```
 
 ## Local setup
 
@@ -30,6 +38,7 @@ TRELLO_INBOX_LIST_ID=
 PUBLIC_BASE_URL=
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
+TRELLO_STATUS_DEBOUNCE_MS=2500
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.
@@ -66,6 +75,21 @@ Trello webhook endpoint:
 HEAD /webhooks/trello
 POST /webhooks/trello
 ```
+
+## Production update
+
+On the VDS:
+
+```bash
+cd /opt/ds-ticket-bot
+git pull
+npm ci
+npm run build
+sudo systemctl restart ds-ticket-bot
+sudo journalctl -u ds-ticket-bot -n 80 --no-pager
+```
+
+Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.
 
 ## Deployment note
 

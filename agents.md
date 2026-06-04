@@ -1,57 +1,98 @@
-# Agents context: Discord Forum → Trello sync bot
+# Agents context: ds-ticket-bot
 
-## Цель
+## What this project is
 
-Нужно сделать маленького бота-мост между Discord и Trello.
-
-Внешние тестеры создают баги в Discord Forum Channel. Команда работает с карточками в Trello. Бот синхронизирует создание тикета и изменение статуса обратно в Discord-тему.
-
-Основная архитектура:
+Small production bridge between Discord Forum tickets and an internal Trello board.
 
 ```text
-Discord Forum Post = публичный тикет для тестера
-Trello Card = внутренняя рабочая карточка команды
-Bot = мост между ними
+Discord Forum Post = public ticket for testers
+Trello Card = internal task for the team
+Bot = one-way bridge plus status feedback
 ```
 
-Тестеры не получают доступ к Trello. Trello остается внутренней доской команды. Discord остается публичной витриной тикета.
+The project must stay small. Do not turn it into a full ticket system.
 
-## Что нужно сделать
+## Current production state
 
-Бот должен уметь только базовую синхронизацию:
+Production host:
 
 ```text
-1. Новый Discord Forum Post → создать Trello Card
-2. Перемещение Trello Card → написать статус в Discord Thread
-3. Хранить связку discordThreadId ↔ trelloCardId
+VDS: BStation
+OS: Ubuntu 22.04.5 LTS
+App path: /opt/ds-ticket-bot
+Public URL: https://tickets.basinger.cc
+Health: https://tickets.basinger.cc/health
+Webhook: https://tickets.basinger.cc/webhooks/trello
+Process: systemd service ds-ticket-bot
+Reverse proxy: nginx
+Database: /opt/ds-ticket-bot/data/tickets.sqlite
+Repo: https://github.com/basingerr/ds-ticket-bot
+Branch: main
 ```
 
-Не нужно делать полноценную тикет-систему, личный кабинет, авто-модерацию, SLA, аналитику, сложные команды и двустороннее редактирование.
+Important: only one bot instance should run with the production Discord token. Do not leave local `npm run dev` running while the VDS service is active, or both instances may receive Discord gateway events.
 
-## Технологии
+## What works now
 
-Рекомендуемый стек:
+- Discord slash command registration works.
+- Discord Forum Post in the configured forum channel creates a Trello card.
+- SQLite stores `discord_thread_id <-> trello_card_id`.
+- Trello card moves are received through the production HTTPS webhook.
+- Trello status updates update a single Discord embed status message instead of posting many messages.
+- Trello webhook updates are debounced with `TRELLO_STATUS_DEBOUNCE_MS` to avoid spam while a card is dragged through multiple lists.
+- `/sync-ticket` works inside a Discord thread and updates the same status embed.
+- Bot tries to apply Discord forum tags best-effort.
+- Bot searches existing open Trello cards by hidden `Discord thread id` marker before creating a new card, as a duplicate guard.
+
+## Current Trello card description format
+
+New cards should be human-readable:
+
+```md
+## Discord ticket
+
+**Автор:** Display Name (@username, discord_user_id)
+**Тема:** Discord thread title
+**Ссылка:** Discord thread link
+
+### Описание
+Ticket text
+
+### Вложения
+- attachment URLs, only when present
+
+<!-- Discord thread id: ... -->
+```
+
+The hidden HTML comment is intentional. It is used to detect whether a Trello card already exists for a Discord thread.
+
+Do not add visible technical id dumps unless the user asks. If changing visible formatting, show the proposed example to the user first.
+
+## Runtime files
 
 ```text
-Node.js
-TypeScript
-discord.js
-Express или Fastify
-Trello REST API
-SQLite
-dotenv
+src/index.ts                 App entry, Express + Discord client
+src/config.ts                Env config
+src/discord/handlers.ts      Discord forum post handling
+src/discord/commands.ts      /sync-ticket
+src/discord/statusMessage.ts Single editable Discord status embed
+src/discord/threadTags.ts    Best-effort forum tag updates
+src/trello/client.ts         Trello REST client and webhook utilities
+src/trello/webhook.ts        Trello webhook receiver and debounced status updates
+src/trello/statusMap.ts      Trello list name -> public status mapping
+src/db/database.ts           SQLite init and migrations
+src/db/ticketLinks.ts        ticket_links repository
+deploy/                      systemd and nginx examples
+DEPLOY.md                    VDS runbook
 ```
-
-Хранилище на старте: SQLite. Postgres/Redis не нужны, если отдельно не попросили.
-
-Деплой предполагается на сервис с публичным HTTPS URL, чтобы Trello webhook мог достучаться до бота.
 
 ## Env
 
-Использовать `.env`.
+Required:
 
 ```env
 DISCORD_TOKEN=
+DISCORD_CLIENT_ID=
 DISCORD_GUILD_ID=
 DISCORD_FORUM_CHANNEL_ID=
 
@@ -60,384 +101,84 @@ TRELLO_TOKEN=
 TRELLO_BOARD_ID=
 TRELLO_INBOX_LIST_ID=
 
-PUBLIC_BASE_URL=
-DATABASE_URL=
+PUBLIC_BASE_URL=https://tickets.basinger.cc
+DATABASE_URL=file:./data/tickets.sqlite
+PORT=3000
+TRELLO_STATUS_DEBOUNCE_MS=2500
 ```
 
-`PUBLIC_BASE_URL` нужен для Trello webhook callback URL.
+Never commit `.env`.
 
-Пример:
+## Common production commands
 
-```text
-https://example.com
+On VDS:
+
+```bash
+cd /opt/ds-ticket-bot
+git pull
+npm ci
+npm run build
+sudo systemctl restart ds-ticket-bot
+sudo journalctl -u ds-ticket-bot -n 80 --no-pager
 ```
 
-Webhook endpoint:
+Webhook utilities:
 
-```text
-POST /webhooks/trello
+```bash
+npm run trello:webhook:prod -- list
+npm run trello:webhook:prod -- create
+npm run trello:webhook:prod -- delete <webhook_id>
 ```
 
-## Discord-логика
+SQLite quick check:
 
-Целевой канал: Discord Forum Channel с баг-репортами.
-
-Бот должен слушать создание новых forum posts.
-
-Технически Discord Forum Post является thread. Поэтому бот должен обрабатывать создание thread/post в заданном forum channel.
-
-При создании нового forum post:
-
-1. Проверить, что thread создан внутри `DISCORD_FORUM_CHANNEL_ID`.
-2. Получить:
-   - thread id
-   - thread title
-   - author id
-   - ссылку на thread/message, если доступна
-   - текст стартового сообщения, если доступен
-
-3. Создать карточку Trello в списке `TRELLO_INBOX_LIST_ID`.
-4. Сохранить связку в БД.
-5. Написать в Discord thread сообщение:
-
-```text
-Тикет принят.
-Статус: New.
+```bash
+sqlite3 data/tickets.sqlite "select discord_thread_id, trello_card_id, status, discord_status_message_id, created_at from ticket_links order by id desc limit 5;"
 ```
 
-6. Если возможно, поставить forum tag `New`.
-
-Если стартовый текст сообщения нельзя получить сразу, не падать. Создать карточку с тем, что есть: title, author, thread id, ссылка на Discord thread.
-
-## Trello-логика
-
-При создании Discord тикета бот создает карточку Trello.
-
-Карточка создается в:
-
-```text
-Board: TRELLO_BOARD_ID
-List: TRELLO_INBOX_LIST_ID
-```
-
-Название карточки:
-
-```text
-<title Discord forum post>
-```
-
-Описание карточки:
-
-```text
-Discord ticket
-
-Автор Discord: <discord_user_id>
-Discord thread id: <discord_thread_id>
-Discord channel id: <discord_channel_id>
-Discord guild id: <discord_guild_id>
-Discord link: <discord_link>
-
-Текст тикета:
-<first_message_content>
-```
-
-Если данных нет, писать `not_available`, не выдумывать.
-
-## Статусы
-
-Trello lists мапятся в Discord statuses.
-
-Базовый маппинг:
-
-```text
-Inbox → New
-Accepted → Accepted
-In Progress → In Progress
-Ready for Retest → Ready for Retest
-Verified → Verified
-Rejected / Duplicate → Rejected / Duplicate
-Need Info → Need Info
-```
-
-Названия списков могут отличаться, поэтому сделать конфиг маппинга в коде отдельным объектом.
-
-Пример:
-
-```ts
-const TRELLO_LIST_TO_STATUS: Record<string, string> = {
-  Inbox: "New",
-  Accepted: "Accepted",
-  "In Progress": "In Progress",
-  "Ready for Retest": "Ready for Retest",
-  Verified: "Verified",
-  "Rejected / Duplicate": "Rejected / Duplicate",
-  "Need Info": "Need Info",
-};
-```
-
-Лучше использовать list id, если они известны. Если list id не заданы, можно временно мапить по имени списка.
-
-## Trello webhook
-
-Бот должен принимать Trello webhook.
-
-При перемещении карточки между списками:
-
-1. Получить `trello_card_id`.
-2. Определить новый список.
-3. Найти в БД связанный `discord_thread_id`.
-4. Определить статус по маппингу.
-5. Обновить статус в БД.
-6. Написать сообщение в Discord thread:
-
-```text
-Статус изменен: <status>.
-```
-
-Если статус `Ready for Retest`, написать расширенное сообщение:
-
-```text
-Статус изменен: Ready for Retest.
-
-Фикс готов к перепроверке. Проверьте заново и отпишите результат в этой теме:
-- ок
-- не исправлено
-- проблема изменилась
-```
-
-Если статус `Need Info`:
-
-```text
-Статус изменен: Need Info.
-
-Нужна дополнительная информация. Опишите детали в этой теме.
-```
-
-Если статус `Rejected / Duplicate`:
-
-```text
-Статус изменен: Rejected / Duplicate.
-```
-
-Не слать Trello-ссылку публично в Discord, если это не включено отдельным флагом.
-
-## База данных
-
-Создать таблицу:
-
-```sql
-CREATE TABLE IF NOT EXISTS ticket_links (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  discord_guild_id TEXT NOT NULL,
-  discord_channel_id TEXT NOT NULL,
-  discord_thread_id TEXT NOT NULL UNIQUE,
-  discord_author_id TEXT,
-  trello_card_id TEXT NOT NULL UNIQUE,
-  trello_card_url TEXT,
-  status TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-```
-
-Нужные операции:
-
-```text
-createTicketLink()
-findByDiscordThreadId()
-findByTrelloCardId()
-updateStatus()
-```
-
-## Idempotency
-
-Бот не должен создавать дубль карточки, если событие Discord пришло повторно.
-
-Перед созданием Trello card:
-
-```text
-findByDiscordThreadId(discord_thread_id)
-```
-
-Если запись уже есть:
-
-- не создавать новую карточку;
-- можно написать в лог;
-- не спамить Discord.
-
-Trello webhook тоже может приходить повторно. Если статус не изменился, не писать повторное сообщение в Discord.
-
-## Discord forum tags
-
-Если доступно через discord.js:
-
-- при создании тикета поставить tag `New`;
-- при смене статуса заменить старый статусный tag на новый.
-
-Статусные tags:
-
-```text
-New
-Accepted
-In Progress
-Ready for Retest
-Verified
-Rejected
-Duplicate
-Need Info
-```
-
-Если обновление тегов не получается быстро сделать, не блокировать основную задачу. Главное: сообщения в thread.
-
-## Slash command
-
-Добавить одну команду для ручной синхронизации:
-
-```text
-/sync-ticket
-```
-
-Поведение:
-
-- вызывается внутри Discord thread;
-- бот ищет запись по `discord_thread_id`;
-- запрашивает текущую Trello card;
-- определяет текущий Trello list;
-- обновляет статус в БД;
-- пишет в thread текущий статус.
-
-Ответ:
-
-```text
-Тикет синхронизирован.
-Текущий статус: <status>.
-```
-
-Если связка не найдена:
-
-```text
-Связка с Trello-карточкой не найдена.
-```
-
-Другие команды не делать.
-
-## Логи
-
-Нужны нормальные console logs без мусора.
-
-Логировать:
-
-```text
-bot started
-discord forum post detected
-trello card created
-ticket link saved
-trello webhook received
-trello card moved
-discord thread updated
-sync command executed
-error
-```
-
-Ошибки должны логироваться с контекстом:
-
-```text
-discord_thread_id
-trello_card_id
-action
-error message
-```
-
-## Ошибки и поведение
-
-Если Trello card не создалась:
-
-- написать ошибку в console;
-- написать в Discord thread:
-
-```text
-Не удалось создать внутренний тикет. Команда проверит вручную.
-```
-
-Если Discord thread не найден при Trello webhook:
-
-- не падать;
-- залогировать ошибку;
-- обновить БД не нужно, если невозможно подтвердить синхронизацию.
-
-Если Trello webhook пришел по карточке без связки:
-
-- игнорировать;
-- залогировать как `unlinked trello card`.
-
-## Что не делать
-
-Не делать:
-
-```text
-- личный кабинет тестера
-- веб-интерфейс
-- авто-закрытие тикетов
-- авто-парсинг ответов “ок / не ок”
-- синхронизацию всех комментариев
-- редактирование Trello card при изменении Discord post
-- редактирование Discord post при изменении Trello card
-- аналитику
-- приоритеты
+## Things that bit us already
+
+- A local dev bot and the VDS bot running at the same time caused duplicate Trello cards.
+- SQLite was initially root-owned on VDS and the service user could not write: `attempt to write a readonly database`.
+- Port `443` was occupied by old `mtproxy.service`, causing nginx to serve the wrong certificate path. MTProxy was removed.
+- GitHub private HTTPS clone does not accept account password. Use public repo, token, or deploy key.
+- Trello webhook requires a publicly reachable HTTPS URL. ngrok worked for local testing; production uses `tickets.basinger.cc`.
+
+## What not to build without explicit request
+
+- Tester dashboard
+- Web UI
+- Analytics
 - SLA
-- роли тестеров
-- сложную модерацию
-- AI-классификацию багов
-- загрузку и проксирование файлов
-```
+- Roles and moderation system
+- AI classification
+- Full two-way comment sync
+- Trello links in public Discord by default
+- File downloading/proxying
+- Auto-parsing tester replies like "ok / not ok"
 
-Вложения Discord на старте не скачивать и не перезаливать. Если у сообщения есть attachment URLs, добавить ссылки в описание Trello card. Если не получилось получить вложения, не блокировать создание тикета.
+## Sensible backlog
 
-## Минимальная структура проекта
+High value:
 
-```text
-src/
-  index.ts
-  config.ts
+- Archive Discord thread on final statuses like `Готово`.
+- Reopen/unarchive thread if card returns to active status.
+- Add bot-owned reactions to the starter post or status message, without deleting user reactions.
+- Add reconciliation job every 5-10 minutes to recover from missed webhooks.
+- Add explicit Trello list mapping for the real Russian board statuses if the team wants public wording different from Trello list names.
 
-  discord/
-    client.ts
-    handlers.ts
-    commands.ts
+Lower priority:
 
-  trello/
-    client.ts
-    webhook.ts
-    statusMap.ts
+- `/ticket-info` command.
+- Docker packaging, only if the server standardizes on Docker.
+- Better structured logs or log rotation.
 
-  db/
-    database.ts
-    ticketLinks.ts
+## Principle
 
-  utils/
-    logger.ts
-    dates.ts
-```
-
-## Acceptance criteria
-
-Готово, когда работает такой флоу:
+Keep it a reliable bridge:
 
 ```text
-1. Тестер создает Discord Forum Post в заданном канале.
-2. Бот создает Trello card в Inbox.
-3. Бот пишет в Discord thread: “Тикет принят. Статус: New.”
-4. В БД появляется связка discordThreadId ↔ trelloCardId.
-5. Команда двигает Trello card в Ready for Retest.
-6. Trello webhook приходит в бота.
-7. Бот находит Discord thread.
-8. Бот пишет в thread, что статус изменен на Ready for Retest.
-9. Повторный webhook с тем же статусом не создает дубль сообщения.
-10. Команда `/sync-ticket` внутри thread подтягивает текущий Trello status.
+Discord Forum Post -> Trello Card -> SQLite link -> Trello move webhook -> Discord status embed
 ```
 
-## Главный принцип
-
-Делать маленький надежный мост, а не новый баг-трекер.
-
-Любое расширение, которое не требуется для флоу Discord Forum Post → Trello Card → Status back, не добавлять.
+Avoid features that make it a separate ticketing platform.
