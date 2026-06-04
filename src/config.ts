@@ -15,6 +15,17 @@ function optional(name: string, fallback: string): string {
   return value && value.trim() !== "" ? value.trim() : fallback;
 }
 
+function optionalNumber(name: string, fallback: number): number {
+  const value = optional(name, String(fallback));
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Invalid numeric env var: ${name}`);
+  }
+
+  return parsed;
+}
+
 export const config = {
   discord: {
     token: required("DISCORD_TOKEN"),
@@ -31,4 +42,5 @@ export const config = {
   publicBaseUrl: required("PUBLIC_BASE_URL").replace(/\/+$/, ""),
   databaseUrl: optional("DATABASE_URL", "file:./data/tickets.sqlite"),
   port: Number(optional("PORT", "3000")),
+  trelloStatusDebounceMs: optionalNumber("TRELLO_STATUS_DEBOUNCE_MS", 2500),
 };
