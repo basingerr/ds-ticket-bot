@@ -8,7 +8,7 @@ import {
 } from "discord.js";
 import { config } from "../config.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
-import { createTrelloCard } from "../trello/client.js";
+import { createTrelloCard, findTrelloCardByDiscordThreadId, type CreatedTrelloCard } from "../trello/client.js";
 import { applyStatusTag } from "./threadTags.js";
 import { logger } from "../utils/logger.js";
 import { handleSyncTicketCommand } from "./commands.js";
@@ -82,18 +82,41 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
 
   const starterMessage = await fetchStarterMessage(thread);
   const authorId = starterMessage?.author.id ?? thread.ownerId ?? null;
+  const description = buildTrelloDescription({ authorId, thread, starterMessage });
+  let card: CreatedTrelloCard | null = null;
 
   try {
-    const card = await createTrelloCard({
-      name: thread.name,
-      desc: buildTrelloDescription({ authorId, thread, starterMessage }),
-    });
+    card = await findTrelloCardByDiscordThreadId(thread.id);
 
-    logger.info("trello card created", {
+    if (card) {
+      logger.warn("existing trello card found for discord thread", {
+        discord_thread_id: thread.id,
+        trello_card_id: card.id,
+      });
+    } else {
+      card = await createTrelloCard({
+        name: thread.name,
+        desc: description,
+      });
+
+      logger.info("trello card created", {
+        discord_thread_id: thread.id,
+        trello_card_id: card.id,
+      });
+    }
+
+  } catch (error) {
+    logger.error("error", {
       discord_thread_id: thread.id,
-      trello_card_id: card.id,
+      action: "create_trello_card_from_discord_thread",
+      error: error instanceof Error ? error.message : String(error),
     });
 
+    await thread.send("Не удалось создать внутренний тикет. Команда проверит вручную.");
+    return;
+  }
+
+  try {
     createTicketLink({
       discordGuildId: config.discord.guildId,
       discordChannelId: thread.parentId ?? config.discord.forumChannelId,
@@ -119,11 +142,10 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   } catch (error) {
     logger.error("error", {
       discord_thread_id: thread.id,
-      action: "create_trello_card_from_discord_thread",
+      trello_card_id: card.id,
+      action: "save_ticket_link_or_update_discord_thread",
       error: error instanceof Error ? error.message : String(error),
     });
-
-    await thread.send("Не удалось создать внутренний тикет. Команда проверит вручную.");
   }
 }
 

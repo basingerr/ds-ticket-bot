@@ -43,6 +43,14 @@ export type TrelloWebhook = {
   consecutiveFailures: number | null;
 };
 
+type TrelloBoardCardResponse = {
+  id: string;
+  name: string;
+  desc?: string;
+  shortUrl?: string;
+  url?: string;
+};
+
 function trelloUrl(path: string, params?: Record<string, string>): string {
   const url = new URL(`https://api.trello.com/1${path}`);
   url.searchParams.set("key", config.trello.key);
@@ -83,6 +91,27 @@ export async function createTrelloCard(input: {
     },
     body,
   });
+
+  return {
+    id: card.id,
+    url: card.url ?? card.shortUrl ?? null,
+  };
+}
+
+export async function findTrelloCardByDiscordThreadId(discordThreadId: string): Promise<CreatedTrelloCard | null> {
+  const cards = await trelloRequest<TrelloBoardCardResponse[]>(
+    trelloUrl(`/boards/${encodeURIComponent(config.trello.boardId)}/cards`, {
+      fields: "id,name,desc,url,shortUrl",
+      filter: "open",
+    }),
+  );
+
+  const marker = `Discord thread id: ${discordThreadId}`;
+  const card = cards.find((candidate) => candidate.desc?.includes(marker));
+
+  if (!card) {
+    return null;
+  }
 
   return {
     id: card.id,
