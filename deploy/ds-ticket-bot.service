@@ -1,0 +1,21 @@
+[Unit]
+Description=Discord Forum to Trello sync bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ds-ticket-bot
+EnvironmentFile=/opt/ds-ticket-bot/.env
+ExecStart=/usr/bin/node /opt/ds-ticket-bot/dist/index.js
+Restart=always
+RestartSec=5
+User=ds-ticket-bot
+Group=ds-ticket-bot
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/ds-ticket-bot/data
+
+[Install]
+WantedBy=multi-user.target
