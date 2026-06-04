@@ -43,6 +43,10 @@ Important: only one bot instance should run with the production Discord token. D
 - `/sync-ticket` works inside a Discord thread and updates the same status embed.
 - Bot tries to apply Discord forum tags best-effort.
 - Bot searches existing open Trello cards by hidden `Discord thread id` marker before creating a new card, as a duplicate guard.
+- New Trello cards created from Discord get a `[QA]` prefix in the card title.
+- Discord thread title edits update the Trello card title and add a Trello comment.
+- Discord starter message edits update the Trello card description and add a Trello comment.
+- Trello card completion/archive state archives or reopens the Discord thread.
 
 ## Current Trello card description format
 
@@ -161,8 +165,6 @@ sqlite3 data/tickets.sqlite "select discord_thread_id, trello_card_id, status, d
 
 High value:
 
-- Archive Discord thread on final statuses like `Готово`.
-- Reopen/unarchive thread if card returns to active status.
 - Add bot-owned reactions to the starter post or status message, without deleting user reactions.
 - Add reconciliation job every 5-10 minutes to recover from missed webhooks.
 - Add explicit Trello list mapping for the real Russian board statuses if the team wants public wording different from Trello list names.

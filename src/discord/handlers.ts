@@ -4,11 +4,18 @@ import {
   Events,
   Interaction,
   Message,
+  PartialMessage,
   ThreadChannel,
 } from "discord.js";
 import { config } from "../config.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
-import { createTrelloCard, findTrelloCardByDiscordThreadId, type CreatedTrelloCard } from "../trello/client.js";
+import {
+  addTrelloCardComment,
+  createTrelloCard,
+  findTrelloCardByDiscordThreadId,
+  updateTrelloCard,
+  type CreatedTrelloCard,
+} from "../trello/client.js";
 import { applyStatusTag } from "./threadTags.js";
 import { upsertStatusMessage } from "./statusMessage.js";
 import { logger } from "../utils/logger.js";
@@ -20,6 +27,10 @@ function valueOrNotAvailable(value: string | null | undefined): string {
 
 function discordThreadLink(threadId: string): string {
   return `https://discord.com/channels/${config.discord.guildId}/${threadId}`;
+}
+
+function trelloCardNameFromThreadName(threadName: string): string {
+  return threadName.startsWith("[QA] ") ? threadName : `[QA] ${threadName}`;
 }
 
 function attachmentLinks(message: Message | null): string {
@@ -116,7 +127,7 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
       });
     } else {
       card = await createTrelloCard({
-        name: thread.name,
+        name: trelloCardNameFromThreadName(thread.name),
         desc: description,
       });
 
@@ -170,6 +181,97 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   }
 }
 
+async function handleForumThreadUpdate(oldThread: ThreadChannel, newThread: ThreadChannel): Promise<void> {
+  if (newThread.parentId !== config.discord.forumChannelId || oldThread.name === newThread.name) {
+    return;
+  }
+
+  const link = findByDiscordThreadId(newThread.id);
+  if (!link) {
+    return;
+  }
+
+  const trelloName = trelloCardNameFromThreadName(newThread.name);
+
+  try {
+    await updateTrelloCard({
+      cardId: link.trelloCardId,
+      name: trelloName,
+    });
+    await addTrelloCardComment(link.trelloCardId, `Автор обновил название: "${newThread.name}".`);
+
+    logger.info("trello card title updated from discord", {
+      discord_thread_id: newThread.id,
+      trello_card_id: link.trelloCardId,
+    });
+  } catch (error) {
+    logger.error("error", {
+      discord_thread_id: newThread.id,
+      trello_card_id: link.trelloCardId,
+      action: "update_trello_card_title_from_discord",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function resolveMessage(message: Message | PartialMessage): Promise<Message | null> {
+  try {
+    return message.partial ? await message.fetch() : message;
+  } catch {
+    return null;
+  }
+}
+
+async function handleStarterMessageUpdate(oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage): Promise<void> {
+  const resolvedNewMessage = await resolveMessage(newMessage);
+  if (!resolvedNewMessage || !resolvedNewMessage.channel.isThread()) {
+    return;
+  }
+
+  const thread = resolvedNewMessage.channel;
+  if (thread.parentId !== config.discord.forumChannelId) {
+    return;
+  }
+
+  const starterMessage = await fetchStarterMessage(thread);
+  if (!starterMessage || starterMessage.id !== resolvedNewMessage.id) {
+    return;
+  }
+
+  const oldContent = "content" in oldMessage ? oldMessage.content : null;
+  if (oldContent === resolvedNewMessage.content) {
+    return;
+  }
+
+  const link = findByDiscordThreadId(thread.id);
+  if (!link) {
+    return;
+  }
+
+  const authorId = resolvedNewMessage.author.id ?? thread.ownerId ?? null;
+  const description = buildTrelloDescription({ authorId, thread, starterMessage: resolvedNewMessage });
+
+  try {
+    await updateTrelloCard({
+      cardId: link.trelloCardId,
+      desc: description,
+    });
+    await addTrelloCardComment(link.trelloCardId, "Автор обновил описание тикета.");
+
+    logger.info("trello card description updated from discord", {
+      discord_thread_id: thread.id,
+      trello_card_id: link.trelloCardId,
+    });
+  } catch (error) {
+    logger.error("error", {
+      discord_thread_id: thread.id,
+      trello_card_id: link.trelloCardId,
+      action: "update_trello_card_description_from_discord",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export function registerDiscordHandlers(client: Client): void {
   client.once(Events.ClientReady, (readyClient) => {
     logger.info("bot started", { discord_user: readyClient.user.tag });
@@ -189,6 +291,18 @@ export function registerDiscordHandlers(client: Client): void {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  });
+
+  client.on(Events.ThreadUpdate, async (oldThread, newThread) => {
+    if (newThread.type !== ChannelType.PublicThread && newThread.type !== ChannelType.PrivateThread) {
+      return;
+    }
+
+    await handleForumThreadUpdate(oldThread, newThread);
+  });
+
+  client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+    await handleStarterMessageUpdate(oldMessage, newMessage);
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {

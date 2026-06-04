@@ -7,6 +7,8 @@ Small bridge bot:
 - SQLite stores `discordThreadId <-> trelloCardId`.
 - `/sync-ticket` manually reconciles status from Trello.
 - Trello webhook updates are debounced to avoid status spam during rapid card moves.
+- Discord title/description edits update the linked Trello card.
+- Trello completion/archive state archives or reopens the Discord thread.
 
 Production:
 

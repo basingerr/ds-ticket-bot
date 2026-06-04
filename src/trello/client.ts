@@ -5,6 +5,8 @@ type TrelloCardResponse = {
   name: string;
   desc?: string;
   idList: string;
+  closed?: boolean;
+  dueComplete?: boolean;
   shortUrl?: string;
   url?: string;
 };
@@ -32,6 +34,8 @@ export type TrelloCardWithList = {
   id: string;
   idList: string;
   listName: string;
+  closed: boolean;
+  dueComplete: boolean;
 };
 
 export type TrelloWebhook = {
@@ -98,6 +102,46 @@ export async function createTrelloCard(input: {
   };
 }
 
+export async function updateTrelloCard(input: {
+  cardId: string;
+  name?: string;
+  desc?: string;
+}): Promise<void> {
+  const body = new URLSearchParams();
+
+  if (input.name !== undefined) {
+    body.set("name", input.name);
+  }
+
+  if (input.desc !== undefined) {
+    body.set("desc", input.desc);
+  }
+
+  if ([...body.keys()].length === 0) {
+    return;
+  }
+
+  await trelloRequest<TrelloCardResponse>(trelloUrl(`/cards/${encodeURIComponent(input.cardId)}`), {
+    method: "PUT",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+}
+
+export async function addTrelloCardComment(cardId: string, text: string): Promise<void> {
+  const body = new URLSearchParams({ text });
+
+  await trelloRequest<{ id: string }>(trelloUrl(`/cards/${encodeURIComponent(cardId)}/actions/comments`), {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+}
+
 export async function findTrelloCardByDiscordThreadId(discordThreadId: string): Promise<CreatedTrelloCard | null> {
   const cards = await trelloRequest<TrelloBoardCardResponse[]>(
     trelloUrl(`/boards/${encodeURIComponent(config.trello.boardId)}/cards`, {
@@ -121,7 +165,7 @@ export async function findTrelloCardByDiscordThreadId(discordThreadId: string): 
 
 export async function getTrelloCardWithList(cardId: string): Promise<TrelloCardWithList> {
   const card = await trelloRequest<TrelloCardResponse>(
-    trelloUrl(`/cards/${encodeURIComponent(cardId)}`, { fields: "id,idList,name" }),
+    trelloUrl(`/cards/${encodeURIComponent(cardId)}`, { fields: "id,idList,name,closed,dueComplete" }),
   );
   const list = await trelloRequest<TrelloListResponse>(
     trelloUrl(`/lists/${encodeURIComponent(card.idList)}`, { fields: "id,name" }),
@@ -131,6 +175,8 @@ export async function getTrelloCardWithList(cardId: string): Promise<TrelloCardW
     id: card.id,
     idList: card.idList,
     listName: list.name,
+    closed: card.closed ?? false,
+    dueComplete: card.dueComplete ?? false,
   };
 }
 

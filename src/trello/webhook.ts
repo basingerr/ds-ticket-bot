@@ -2,6 +2,7 @@ import { Client } from "discord.js";
 import express, { Router } from "express";
 import { config } from "../config.js";
 import { findByTrelloCardId, updateStatus } from "../db/ticketLinks.js";
+import { getTrelloCardWithList } from "./client.js";
 import { statusFromListName } from "./statusMap.js";
 import { applyStatusTag } from "../discord/threadTags.js";
 import { upsertStatusMessage } from "../discord/statusMessage.js";
@@ -13,6 +14,12 @@ type TrelloWebhookBody = {
     data?: {
       card?: {
         id?: string;
+        closed?: boolean;
+        dueComplete?: boolean;
+      };
+      old?: {
+        closed?: boolean;
+        dueComplete?: boolean;
       };
       listAfter?: {
         id?: string;
@@ -45,6 +52,46 @@ async function updateDiscordThread(client: Client, trelloCardId: string, status:
 
   await upsertStatusMessage(channel, link, status);
   await applyStatusTag(channel, status);
+}
+
+async function setDiscordThreadArchived(client: Client, trelloCardId: string, archived: boolean): Promise<void> {
+  const link = findByTrelloCardId(trelloCardId);
+  if (!link) {
+    logger.info("unlinked trello card", { trello_card_id: trelloCardId });
+    return;
+  }
+
+  const channel = await client.channels.fetch(link.discordThreadId);
+  if (!channel || !channel.isThread()) {
+    throw new Error("Discord thread not found");
+  }
+
+  if (channel.archived === archived) {
+    return;
+  }
+
+  await channel.setArchived(archived, archived ? "Trello ticket closed" : "Trello ticket reopened");
+
+  logger.info(archived ? "discord thread archived" : "discord thread reopened", {
+    trello_card_id: trelloCardId,
+    discord_thread_id: link.discordThreadId,
+  });
+}
+
+async function syncTrelloCardCurrentStatus(client: Client, trelloCardId: string): Promise<void> {
+  const card = await getTrelloCardWithList(trelloCardId);
+  const status = statusFromListName(card.listName);
+  await applyTrelloCardMove(client, trelloCardId, status);
+}
+
+async function handleTrelloClosedStateChange(client: Client, trelloCardId: string, isClosed: boolean): Promise<void> {
+  if (isClosed) {
+    await setDiscordThreadArchived(client, trelloCardId, true);
+    return;
+  }
+
+  await setDiscordThreadArchived(client, trelloCardId, false);
+  await syncTrelloCardCurrentStatus(client, trelloCardId);
 }
 
 async function applyTrelloCardMove(client: Client, trelloCardId: string, status: string): Promise<void> {
@@ -128,10 +175,34 @@ export function createTrelloWebhookRouter(client: Client): Router {
       return;
     }
 
-    const trelloCardId = action.data?.card?.id;
-    const listName = action.data?.listAfter?.name;
+    const data = action.data;
+    const trelloCardId = data?.card?.id;
+    const listName = data?.listAfter?.name;
 
-    if (!trelloCardId || !listName) {
+    if (!trelloCardId) {
+      return;
+    }
+
+    const closedChanged = data?.old?.closed !== undefined && data.card?.closed !== undefined;
+    const dueCompleteChanged = data?.old?.dueComplete !== undefined && data.card?.dueComplete !== undefined;
+
+    if (closedChanged || dueCompleteChanged) {
+      const isClosed = data?.card?.closed === true || data?.card?.dueComplete === true;
+
+      try {
+        await handleTrelloClosedStateChange(client, trelloCardId, isClosed);
+      } catch (error) {
+        logger.error("error", {
+          trello_card_id: trelloCardId,
+          action: "sync_discord_thread_archive_from_trello",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      return;
+    }
+
+    if (!listName) {
       return;
     }
 
