@@ -2,8 +2,9 @@ import { Client } from "discord.js";
 import express, { Router } from "express";
 import { config } from "../config.js";
 import { findByTrelloCardId, updateStatus } from "../db/ticketLinks.js";
-import { discordMessageForStatus, statusFromListName } from "./statusMap.js";
+import { statusFromListName } from "./statusMap.js";
 import { applyStatusTag } from "../discord/threadTags.js";
+import { upsertStatusMessage } from "../discord/statusMessage.js";
 import { logger } from "../utils/logger.js";
 
 type TrelloWebhookBody = {
@@ -29,14 +30,20 @@ type PendingStatusUpdate = {
 
 const pendingStatusUpdates = new Map<string, PendingStatusUpdate>();
 
-async function updateDiscordThread(client: Client, discordThreadId: string, status: string): Promise<void> {
-  const channel = await client.channels.fetch(discordThreadId);
+async function updateDiscordThread(client: Client, trelloCardId: string, status: string): Promise<void> {
+  const link = findByTrelloCardId(trelloCardId);
+  if (!link) {
+    logger.info("unlinked trello card", { trello_card_id: trelloCardId });
+    return;
+  }
+
+  const channel = await client.channels.fetch(link.discordThreadId);
 
   if (!channel || !channel.isThread()) {
     throw new Error("Discord thread not found");
   }
 
-  await channel.send(discordMessageForStatus(status));
+  await upsertStatusMessage(channel, link, status);
   await applyStatusTag(channel, status);
 }
 
@@ -63,7 +70,7 @@ async function applyTrelloCardMove(client: Client, trelloCardId: string, status:
   });
 
   try {
-    await updateDiscordThread(client, link.discordThreadId, status);
+    await updateDiscordThread(client, trelloCardId, status);
     updateStatus(link.id, status);
 
     logger.info("discord thread updated", {

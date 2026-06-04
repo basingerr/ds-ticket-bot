@@ -9,6 +9,7 @@ export type TicketLink = {
   discordAuthorId: string | null;
   trelloCardId: string;
   trelloCardUrl: string | null;
+  discordStatusMessageId: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -22,6 +23,7 @@ type TicketLinkRow = {
   discord_author_id: string | null;
   trello_card_id: string;
   trello_card_url: string | null;
+  discord_status_message_id: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -34,6 +36,7 @@ export type CreateTicketLinkInput = {
   discordAuthorId?: string | null;
   trelloCardId: string;
   trelloCardUrl?: string | null;
+  discordStatusMessageId?: string | null;
   status: string;
 };
 
@@ -50,6 +53,7 @@ function mapRow(row: TicketLinkRow | undefined): TicketLink | null {
     discordAuthorId: row.discord_author_id,
     trelloCardId: row.trello_card_id,
     trelloCardUrl: row.trello_card_url,
+    discordStatusMessageId: row.discord_status_message_id,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -67,11 +71,12 @@ export function createTicketLink(input: CreateTicketLinkInput): TicketLink {
       discord_author_id,
       trello_card_id,
       trello_card_url,
+      discord_status_message_id,
       status,
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   statement.run(
@@ -81,6 +86,7 @@ export function createTicketLink(input: CreateTicketLinkInput): TicketLink {
     input.discordAuthorId ?? null,
     input.trelloCardId,
     input.trelloCardUrl ?? null,
+    input.discordStatusMessageId ?? null,
     input.status,
     createdAt,
     createdAt,
@@ -117,6 +123,22 @@ export function updateStatus(id: number, status: string): TicketLink {
   const link = mapRow(row);
   if (!link) {
     throw new Error("Ticket link was updated but could not be loaded");
+  }
+
+  return link;
+}
+
+export function updateDiscordStatusMessageId(id: number, discordStatusMessageId: string): TicketLink {
+  db.prepare("UPDATE ticket_links SET discord_status_message_id = ?, updated_at = ? WHERE id = ?").run(
+    discordStatusMessageId,
+    nowIso(),
+    id,
+  );
+
+  const row = db.prepare("SELECT * FROM ticket_links WHERE id = ?").get(id) as TicketLinkRow | undefined;
+  const link = mapRow(row);
+  if (!link) {
+    throw new Error("Ticket link status message was updated but could not be loaded");
   }
 
   return link;

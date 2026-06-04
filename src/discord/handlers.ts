@@ -10,6 +10,7 @@ import { config } from "../config.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
 import { createTrelloCard, findTrelloCardByDiscordThreadId, type CreatedTrelloCard } from "../trello/client.js";
 import { applyStatusTag } from "./threadTags.js";
+import { upsertStatusMessage } from "./statusMessage.js";
 import { logger } from "../utils/logger.js";
 import { handleSyncTicketCommand } from "./commands.js";
 
@@ -65,16 +66,7 @@ function buildTrelloDescription(input: {
 
   lines.push(
     "",
-    "---",
-    "<details>",
-    "<summary>Технические данные</summary>",
-    "",
-    `Discord author id: ${valueOrNotAvailable(input.authorId)}`,
-    `Discord thread id: ${input.thread.id}`,
-    `Discord channel id: ${valueOrNotAvailable(input.thread.parentId)}`,
-    `Discord guild id: ${config.discord.guildId}`,
-    "",
-    "</details>",
+    `<!-- Discord thread id: ${input.thread.id} -->`,
   );
 
   return lines.join("\n");
@@ -146,7 +138,7 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   }
 
   try {
-    createTicketLink({
+    const link = createTicketLink({
       discordGuildId: config.discord.guildId,
       discordChannelId: thread.parentId ?? config.discord.forumChannelId,
       discordThreadId: thread.id,
@@ -161,7 +153,7 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
       trello_card_id: card.id,
     });
 
-    await thread.send("Тикет принят.\nСтатус: New.");
+    await upsertStatusMessage(thread, link, "New");
     await applyStatusTag(thread, "New");
 
     logger.info("discord thread updated", {

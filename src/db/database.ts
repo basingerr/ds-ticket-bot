@@ -30,11 +30,19 @@ export function initDatabase(): void {
       discord_author_id TEXT,
       trello_card_id TEXT NOT NULL UNIQUE,
       trello_card_url TEXT,
+      discord_status_message_id TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `);
+
+  const columns = db.prepare("PRAGMA table_info(ticket_links)").all() as Array<{ name: string }>;
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has("discord_status_message_id")) {
+    db.exec("ALTER TABLE ticket_links ADD COLUMN discord_status_message_id TEXT");
+  }
 }
 
 export function closeDatabase(): void {

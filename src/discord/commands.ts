@@ -3,6 +3,7 @@ import { findByDiscordThreadId, updateStatus } from "../db/ticketLinks.js";
 import { getTrelloCardWithList } from "../trello/client.js";
 import { statusFromListName } from "../trello/statusMap.js";
 import { applyStatusTag } from "./threadTags.js";
+import { upsertStatusMessage } from "./statusMessage.js";
 import { logger } from "../utils/logger.js";
 
 export const syncTicketCommand = new SlashCommandBuilder()
@@ -37,11 +38,10 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
   try {
     const card = await getTrelloCardWithList(link.trelloCardId);
     const status = statusFromListName(card.listName);
+    const updatedLink = status !== link.status ? updateStatus(link.id, status) : link;
 
-    if (status !== link.status) {
-      updateStatus(link.id, status);
-      await applyStatusTag(channel, status);
-    }
+    await upsertStatusMessage(channel, updatedLink, status);
+    await applyStatusTag(channel, status);
 
     await interaction.reply(`Тикет синхронизирован.\nТекущий статус: ${status}.`);
   } catch (error) {
