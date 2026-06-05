@@ -193,8 +193,30 @@ async function disableQaFeedbackButtonsFromModal(interaction: ModalSubmitInterac
   await disableQaFeedbackButtons(message, "needs_work");
 }
 
-function publicQaFeedbackContent(content: string): string {
-  return truncateText(content, 1900);
+async function sendQaFeedbackThreadEmbed(input: {
+  thread: ThreadChannel;
+  userId: string;
+  result: "fixed" | "needs_work";
+  details?: string;
+}): Promise<void> {
+  const userMention = `<@${input.userId}>`;
+  const isFixed = input.result === "fixed";
+  const embed = new EmbedBuilder()
+    .setColor(isFixed ? 0x22c55e : 0xf59e0b)
+    .setTitle("QA проверка")
+    .setDescription(isFixed
+      ? `${userMention} подтвердил: **исправлено**.`
+      : `${userMention} сообщил: **нужна доработка**.`)
+    .setTimestamp();
+
+  if (input.details) {
+    embed.addFields({ name: "Что не так", value: truncateText(input.details, 1000) });
+  }
+
+  await input.thread.send({
+    embeds: [embed],
+    allowedMentions: { users: [] },
+  });
 }
 
 async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void> {
@@ -213,7 +235,7 @@ async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void
 
   const content = "QA подтвердил: исправлено.";
   pendingQaFeedbackThreadIds.add(context.thread.id);
-  await interaction.deferReply();
+  await interaction.deferUpdate();
 
   try {
     await addTrelloCardComment(context.link.trelloCardId, content);
@@ -226,8 +248,9 @@ async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void
     });
 
     pendingQaFeedbackThreadIds.delete(context.thread.id);
-    await interaction.editReply({
+    await interaction.followUp({
       content: "Не удалось отправить подтверждение. Команда проверит вручную.",
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -259,8 +282,26 @@ async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void
     });
   }
 
+  try {
+    await sendQaFeedbackThreadEmbed({
+      thread: context.thread,
+      userId: interaction.user.id,
+      result: "fixed",
+    });
+  } catch (error) {
+    logger.warn("qa fixed feedback public embed failed", {
+      discord_thread_id: context.thread.id,
+      trello_card_id: context.link.trelloCardId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    await interaction.followUp({
+      content: "В Trello отправил, но сообщение в тред написать не удалось.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
   pendingQaFeedbackThreadIds.delete(context.thread.id);
-  await interaction.editReply(publicQaFeedbackContent(content));
 }
 
 async function handleQaNeedsWorkButton(interaction: ButtonInteraction): Promise<void> {
@@ -309,7 +350,7 @@ async function handleQaNeedsWorkModal(interaction: ModalSubmitInteraction): Prom
 
   const content = `QA сообщил: нужна доработка.\n${details}`;
   pendingQaFeedbackThreadIds.add(context.thread.id);
-  await interaction.deferReply();
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     await addTrelloCardComment(context.link.trelloCardId, content);
@@ -356,7 +397,23 @@ async function handleQaNeedsWorkModal(interaction: ModalSubmitInteraction): Prom
   }
 
   pendingQaFeedbackThreadIds.delete(context.thread.id);
-  await interaction.editReply(publicQaFeedbackContent(content));
+  try {
+    await sendQaFeedbackThreadEmbed({
+      thread: context.thread,
+      userId: interaction.user.id,
+      result: "needs_work",
+      details,
+    });
+    await interaction.deleteReply();
+  } catch (error) {
+    logger.warn("qa needs work feedback public embed failed", {
+      discord_thread_id: context.thread.id,
+      trello_card_id: context.link.trelloCardId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    await interaction.editReply("В Trello отправил, но сообщение в тред написать не удалось.");
+  }
 }
 
 async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
