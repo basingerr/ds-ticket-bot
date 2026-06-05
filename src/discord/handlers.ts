@@ -83,17 +83,59 @@ function buildTrelloDescription(input: {
   return lines.join("\n");
 }
 
-async function fetchStarterMessage(thread: ThreadChannel): Promise<Message | null> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function fetchFirstUserMessage(thread: ThreadChannel): Promise<Message | null> {
   try {
-    return await thread.fetchStarterMessage();
+    const messages = await thread.messages.fetch({ limit: 10 });
+    return messages
+      .filter((message) => !message.author.bot)
+      .sort((left, right) => left.createdTimestamp - right.createdTimestamp)
+      .first() ?? null;
   } catch (error) {
-    logger.warn("starter message unavailable", {
+    logger.warn("thread messages unavailable", {
       discord_thread_id: thread.id,
-      action: "fetch_starter_message",
+      action: "fetch_first_user_message",
       error: error instanceof Error ? error.message : String(error),
     });
     return null;
   }
+}
+
+async function fetchStarterMessage(thread: ThreadChannel): Promise<Message | null> {
+  const attempts = 6;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const starterMessage = await thread.fetchStarterMessage();
+      if (starterMessage?.content || starterMessage?.attachments.size) {
+        return starterMessage;
+      }
+
+      const fallbackMessage = await fetchFirstUserMessage(thread);
+      if (fallbackMessage?.content || fallbackMessage?.attachments.size) {
+        return fallbackMessage;
+      }
+    } catch (error) {
+      if (attempt === attempts) {
+        logger.warn("starter message unavailable", {
+          discord_thread_id: thread.id,
+          action: "fetch_starter_message",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (attempt < attempts) {
+      await sleep(1000);
+    }
+  }
+
+  return null;
 }
 
 async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
