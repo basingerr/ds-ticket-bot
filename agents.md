@@ -54,6 +54,7 @@ Important: only one bot instance should run with the production Discord token. D
 - Bot-owned starter message reactions reflect real board statuses: `🕓`, `🔧`, `🔁`, `✅`, fallback `⚠️`.
 - Periodic reconciliation job checks SQLite links against Trello and repairs missed Discord status/archive changes.
 - `/bot-mode` provides an admin-only emergency `active`/`readonly` switch persisted in SQLite.
+- `/bhealth` provides admin-only private diagnostics for Discord, Trello, SQLite, webhook, mode, public URL, and reconciliation.
 
 ## Current Trello card description format
 
@@ -127,7 +128,7 @@ TESTER_STATS_ROLE_IDS=1253347054000803922,1443903847046053949,150962136605432635
 
 Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
 
-Emergency switch: `/bot-mode` can show/set `active` or `readonly`. Access is limited by `BOT_ADMIN_USER_IDS` or `BOT_ADMIN_ROLE_IDS`. In `readonly`, the bot keeps health and `/bot-mode`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
+Emergency switch: `/bot-mode` can show/set `active` or `readonly`. Access is limited by `BOT_ADMIN_USER_IDS` or `BOT_ADMIN_ROLE_IDS`. In `readonly`, the bot keeps health, `/bot-mode`, and `/bhealth`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
 
 `/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
 

@@ -25,6 +25,13 @@ type TrelloWebhookResponse = {
   consecutiveFailures?: number;
 };
 
+type TrelloBoardResponse = {
+  id: string;
+  name: string;
+  url?: string;
+  closed?: boolean;
+};
+
 export type CreatedTrelloCard = {
   id: string;
   url: string | null;
@@ -52,6 +59,13 @@ export type TrelloWebhook = {
   description: string | null;
   active: boolean;
   consecutiveFailures: number | null;
+};
+
+export type TrelloBoard = {
+  id: string;
+  name: string;
+  url: string | null;
+  closed: boolean;
 };
 
 type TrelloBoardCardResponse = {
@@ -201,6 +215,19 @@ export async function getTrelloCardWithList(cardId: string): Promise<TrelloCardW
     listName: list.name,
     closed: card.closed ?? false,
     dueComplete: card.dueComplete ?? false,
+  };
+}
+
+export async function getTrelloBoard(): Promise<TrelloBoard> {
+  const board = await trelloRequest<TrelloBoardResponse>(
+    trelloUrl(`/boards/${encodeURIComponent(config.trello.boardId)}`, { fields: "id,name,url,closed" }),
+  );
+
+  return {
+    id: board.id,
+    name: board.name,
+    url: board.url ?? null,
+    closed: board.closed ?? false,
   };
 }
 

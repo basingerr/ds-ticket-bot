@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { dirname, resolve } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 import { config } from "../config.js";
+import { nowIso } from "../utils/dates.js";
 
 function databasePathFromUrl(databaseUrl: string): string {
   if (!databaseUrl.startsWith("file:")) {
@@ -53,4 +54,14 @@ export function initDatabase(): void {
 
 export function closeDatabase(): void {
   db.close();
+}
+
+export function checkDatabaseWritable(): void {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      updated_at = excluded.updated_at
+  `).run("health_check", "ok", nowIso());
 }

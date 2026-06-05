@@ -133,10 +133,12 @@ Emergency readonly switch:
 /bot-mode
 /bot-mode mode:readonly
 /bot-mode mode:active
+/bhealth
 ```
 
 Only users listed in `BOT_ADMIN_USER_IDS` or members with roles listed in `BOT_ADMIN_ROLE_IDS` can use it.
 In `readonly` mode the bot keeps `/health` and `/bot-mode`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
+`/bhealth` uses the same admin access and privately checks Discord, Trello, SQLite, webhook, mode, public URL, and reconciliation.
 `/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
 
 Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.
