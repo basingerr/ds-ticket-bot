@@ -43,4 +43,5 @@ export const config = {
   databaseUrl: optional("DATABASE_URL", "file:./data/tickets.sqlite"),
   port: Number(optional("PORT", "3000")),
   trelloStatusDebounceMs: optionalNumber("TRELLO_STATUS_DEBOUNCE_MS", 2500),
+  reconcileIntervalMs: optionalNumber("RECONCILE_INTERVAL_MS", 300000),
 };

@@ -11,6 +11,7 @@ Small bridge bot:
 - Trello completion/archive state archives or reopens the Discord thread.
 - Trello descriptions can be repaired from Discord with a dry-run tool.
 - Bot-owned starter message reactions reflect the current ticket status.
+- A periodic reconciliation job repairs missed Trello/Discord status changes.
 
 Production:
 
@@ -43,6 +44,7 @@ PUBLIC_BASE_URL=
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
 TRELLO_STATUS_DEBOUNCE_MS=2500
+RECONCILE_INTERVAL_MS=300000
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.

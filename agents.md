@@ -48,6 +48,7 @@ Important: only one bot instance should run with the production Discord token. D
 - Discord starter message edits update the Trello card description and add a Trello comment.
 - Trello card completion/archive state archives or reopens the Discord thread.
 - Bot-owned starter message reactions reflect real board statuses: `🕓`, `🔧`, `🔁`, `✅`, fallback `⚠️`.
+- Periodic reconciliation job checks SQLite links against Trello and repairs missed Discord status/archive changes.
 
 ## Current Trello card description format
 
@@ -75,6 +76,7 @@ Do not add visible technical id dumps unless the user asks. If changing visible 
 
 ```text
 src/index.ts                 App entry, Express + Discord client
+src/reconcile.ts             Periodic Trello/Discord reconciliation job
 src/config.ts                Env config
 src/discord/handlers.ts      Discord forum post handling
 src/discord/commands.ts      /sync-ticket
@@ -111,7 +113,10 @@ PUBLIC_BASE_URL=https://tickets.basinger.cc
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
 TRELLO_STATUS_DEBOUNCE_MS=2500
+RECONCILE_INTERVAL_MS=300000
 ```
+
+Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
 
 Never commit `.env`.
 
