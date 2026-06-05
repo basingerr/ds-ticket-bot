@@ -67,6 +67,15 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
   let changed = false;
 
   if (shouldBeArchived) {
+    if (channel.archived) {
+      if (status !== link.status) {
+        updateStatus(link.id, status);
+        return "updated";
+      }
+
+      return "unchanged";
+    }
+
     if (card.dueComplete) {
       await upsertCompletedStatusMessage(channel, link, status);
       await applyStatusReaction(channel, "Готово");
@@ -80,10 +89,8 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
       await applyStatusReaction(channel, "manual_close");
     }
 
-    if (!channel.archived) {
-      await channel.setArchived(true, card.dueComplete ? "Trello reconciliation: ticket completed" : "Trello reconciliation: card archived");
-      changed = true;
-    }
+    await channel.setArchived(true, card.dueComplete ? "Trello reconciliation: ticket completed" : "Trello reconciliation: card archived");
+    changed = true;
 
     if (status !== link.status) {
       updateStatus(link.id, status);

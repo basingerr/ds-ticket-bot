@@ -88,6 +88,14 @@ async function setDiscordThreadArchiveState(input: {
     throw new Error("Discord thread not found");
   }
 
+  if (archived && channel.archived) {
+    logger.info("discord thread archive state already applied", {
+      trello_card_id: trelloCardId,
+      discord_thread_id: link.discordThreadId,
+    });
+    return;
+  }
+
   if (state === "completed") {
     await upsertCompletedStatusMessage(channel, link, status);
     await applyStatusReaction(channel, "Готово");
