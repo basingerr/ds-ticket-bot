@@ -8,10 +8,46 @@ import { getTrelloCardWithList } from "./trello/client.js";
 import { statusFromListName } from "./trello/statusMap.js";
 import { logger } from "./utils/logger.js";
 
+function isTrelloNotFoundError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("Trello API error 404");
+}
+
+async function closeMissingTrelloCardThread(
+  client: Client,
+  link: TicketLink,
+): Promise<"updated" | "unchanged" | "skipped"> {
+  const channel = await client.channels.fetch(link.discordThreadId);
+  if (!channel || !channel.isThread()) {
+    logger.warn("reconcile skipped: discord thread not found for missing trello card", {
+      discord_thread_id: link.discordThreadId,
+      trello_card_id: link.trelloCardId,
+    });
+    return "skipped";
+  }
+
+  if (channel.archived) {
+    return "unchanged";
+  }
+
+  await channel.send("Тикет закрыт: внутренняя Trello-карточка удалена или больше недоступна. Команда проверит вручную.");
+  await channel.setArchived(true, "Trello reconciliation: card missing");
+  return "updated";
+}
+
 async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"updated" | "unchanged" | "skipped"> {
-  const card = await getTrelloCardWithList(link.trelloCardId);
+  let card;
+  try {
+    card = await getTrelloCardWithList(link.trelloCardId);
+  } catch (error) {
+    if (isTrelloNotFoundError(error)) {
+      return closeMissingTrelloCardThread(client, link);
+    }
+
+    throw error;
+  }
+
   const status = statusFromListName(card.listName);
-  const shouldBeArchived = card.closed || card.dueComplete;
+  const shouldBeArchived = card.dueComplete || card.closed;
 
   const channel = await client.channels.fetch(link.discordThreadId);
   if (!channel || !channel.isThread()) {
@@ -26,7 +62,12 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
 
   if (shouldBeArchived) {
     if (!channel.archived) {
-      await channel.setArchived(true, "Trello reconciliation: ticket closed");
+      await channel.send(
+        card.dueComplete
+          ? "Тикет закрыт: внутренняя карточка отмечена завершенной."
+          : "Тикет закрыт: внутренняя Trello-карточка архивирована.",
+      );
+      await channel.setArchived(true, card.dueComplete ? "Trello reconciliation: ticket completed" : "Trello reconciliation: card archived");
       changed = true;
     }
 

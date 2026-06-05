@@ -8,7 +8,9 @@ Small bridge bot:
 - `/sync-ticket` manually reconciles status from Trello.
 - Trello webhook updates are debounced to avoid status spam during rapid card moves.
 - Discord title/description edits update the linked Trello card.
-- Trello completion/archive state archives or reopens the Discord thread.
+- Trello completion checkbox archives or reopens the Discord thread.
+- Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
+- Moving a card to `Готово` only changes status; it does not archive the Discord thread by itself.
 - Trello descriptions can be repaired from Discord with a dry-run tool.
 - Bot-owned starter message reactions reflect the current ticket status.
 - A periodic reconciliation job repairs missed Trello/Discord status changes.
