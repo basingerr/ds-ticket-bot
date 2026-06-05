@@ -38,6 +38,7 @@ type PendingStatusUpdate = {
 };
 
 const pendingStatusUpdates = new Map<string, PendingStatusUpdate>();
+const pendingArchiveUpdates = new Set<string>();
 
 function clearPendingStatusUpdate(trelloCardId: string): void {
   const pending = pendingStatusUpdates.get(trelloCardId);
@@ -77,45 +78,62 @@ async function setDiscordThreadArchiveState(input: {
   reason: string;
 }): Promise<void> {
   const { client, trelloCardId, archived, state, manualCloseReason, status, reason } = input;
-  const link = findByTrelloCardId(trelloCardId);
-  if (!link) {
-    logger.info("unlinked trello card", { trello_card_id: trelloCardId });
-    return;
-  }
-
-  const channel = await client.channels.fetch(link.discordThreadId);
-  if (!channel || !channel.isThread()) {
-    throw new Error("Discord thread not found");
-  }
-
-  if (archived && channel.archived) {
-    logger.info("discord thread archive state already applied", {
+  if (archived && pendingArchiveUpdates.has(trelloCardId)) {
+    logger.info("discord thread archive update already pending", {
       trello_card_id: trelloCardId,
-      discord_thread_id: link.discordThreadId,
     });
     return;
   }
 
-  if (state === "completed") {
-    await upsertCompletedStatusMessage(channel, link, status);
-    await applyStatusReaction(channel, "Готово");
+  if (archived) {
+    pendingArchiveUpdates.add(trelloCardId);
   }
 
-  if (state === "manual_close") {
-    await upsertManualCloseStatusMessage(channel, link, manualCloseReason ?? "Команда проверит вручную.", status);
-    await applyStatusReaction(channel, "manual_close");
+  const link = findByTrelloCardId(trelloCardId);
+  try {
+    if (!link) {
+      logger.info("unlinked trello card", { trello_card_id: trelloCardId });
+      return;
+    }
+
+    const channel = await client.channels.fetch(link.discordThreadId);
+    if (!channel || !channel.isThread()) {
+      throw new Error("Discord thread not found");
+    }
+
+    if (archived && channel.archived) {
+      logger.info("discord thread archive state already applied", {
+        trello_card_id: trelloCardId,
+        discord_thread_id: link.discordThreadId,
+      });
+      return;
+    }
+
+    if (state === "completed") {
+      await upsertCompletedStatusMessage(channel, link, status);
+      await applyStatusReaction(channel, "Готово");
+    }
+
+    if (state === "manual_close") {
+      await upsertManualCloseStatusMessage(channel, link, manualCloseReason ?? "Команда проверит вручную.", status);
+      await applyStatusReaction(channel, "manual_close");
+    }
+
+    if (channel.archived === archived) {
+      return;
+    }
+
+    await channel.setArchived(archived, reason);
+
+    logger.info(archived ? "discord thread archived" : "discord thread reopened", {
+      trello_card_id: trelloCardId,
+      discord_thread_id: link.discordThreadId,
+    });
+  } finally {
+    if (archived) {
+      pendingArchiveUpdates.delete(trelloCardId);
+    }
   }
-
-  if (channel.archived === archived) {
-    return;
-  }
-
-  await channel.setArchived(archived, reason);
-
-  logger.info(archived ? "discord thread archived" : "discord thread reopened", {
-    trello_card_id: trelloCardId,
-    discord_thread_id: link.discordThreadId,
-  });
 }
 
 async function syncTrelloCardCurrentStatus(client: Client, trelloCardId: string): Promise<void> {
