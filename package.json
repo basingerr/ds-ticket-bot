@@ -9,6 +9,8 @@
     "build": "tsc",
     "register-commands": "tsx src/discord/registerCommands.ts",
     "register-commands:prod": "node dist/discord/registerCommands.js",
+    "repair:descriptions": "tsx src/discord/repairTrelloDescriptions.ts",
+    "repair:descriptions:prod": "node dist/discord/repairTrelloDescriptions.js",
     "trello:webhook": "tsx src/trello/manageWebhook.ts",
     "trello:webhook:prod": "node dist/trello/manageWebhook.js"
   },

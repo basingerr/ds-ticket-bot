@@ -38,6 +38,13 @@ export type TrelloCardWithList = {
   dueComplete: boolean;
 };
 
+export type TrelloCard = {
+  id: string;
+  name: string;
+  desc: string;
+  url: string | null;
+};
+
 export type TrelloWebhook = {
   id: string;
   callbackUrl: string;
@@ -150,8 +157,12 @@ export async function findTrelloCardByDiscordThreadId(discordThreadId: string): 
     }),
   );
 
-  const marker = `Discord thread id: ${discordThreadId}`;
-  const card = cards.find((candidate) => candidate.desc?.includes(marker));
+  const threadLink = `https://discord.com/channels/${config.discord.guildId}/${discordThreadId}`;
+  const legacyMarker = `Discord thread id: ${discordThreadId}`;
+  const card = cards.find((candidate) => (
+    candidate.desc?.includes(threadLink) ||
+    candidate.desc?.includes(legacyMarker)
+  ));
 
   if (!card) {
     return null;
@@ -159,6 +170,19 @@ export async function findTrelloCardByDiscordThreadId(discordThreadId: string): 
 
   return {
     id: card.id,
+    url: card.url ?? card.shortUrl ?? null,
+  };
+}
+
+export async function getTrelloCard(cardId: string): Promise<TrelloCard> {
+  const card = await trelloRequest<TrelloCardResponse>(
+    trelloUrl(`/cards/${encodeURIComponent(cardId)}`, { fields: "id,name,desc,url,shortUrl" }),
+  );
+
+  return {
+    id: card.id,
+    name: card.name,
+    desc: card.desc ?? "",
     url: card.url ?? card.shortUrl ?? null,
   };
 }

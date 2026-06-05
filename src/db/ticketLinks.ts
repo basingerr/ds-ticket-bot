@@ -116,6 +116,21 @@ export function findByTrelloCardId(trelloCardId: string): TicketLink | null {
   return mapRow(row);
 }
 
+export function listTicketLinks(): TicketLink[] {
+  const rows = db
+    .prepare("SELECT * FROM ticket_links ORDER BY id ASC")
+    .all() as TicketLinkRow[];
+
+  return rows.map((row) => {
+    const link = mapRow(row);
+    if (!link) {
+      throw new Error("Ticket link row could not be mapped");
+    }
+
+    return link;
+  });
+}
+
 export function updateStatus(id: number, status: string): TicketLink {
   db.prepare("UPDATE ticket_links SET status = ?, updated_at = ? WHERE id = ?").run(status, nowIso(), id);
 

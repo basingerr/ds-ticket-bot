@@ -42,7 +42,7 @@ Important: only one bot instance should run with the production Discord token. D
 - Trello webhook updates are debounced with `TRELLO_STATUS_DEBOUNCE_MS` to avoid spam while a card is dragged through multiple lists.
 - `/sync-ticket` works inside a Discord thread and updates the same status embed.
 - Bot tries to apply Discord forum tags best-effort.
-- Bot searches existing open Trello cards by hidden `Discord thread id` marker before creating a new card, as a duplicate guard.
+- Bot searches existing open Trello cards by Discord thread URL before creating a new card, as a duplicate guard.
 - New Trello cards created from Discord get a `[QA]` prefix in the card title.
 - Discord thread title edits update the Trello card title and add a Trello comment.
 - Discord starter message edits update the Trello card description and add a Trello comment.
@@ -64,11 +64,9 @@ Ticket text
 
 ### Вложения
 - attachment URLs, only when present
-
-<!-- Discord thread id: ... -->
 ```
 
-The hidden HTML comment is intentional. It is used to detect whether a Trello card already exists for a Discord thread.
+Current format should not include a visible or hidden technical `Discord thread id` marker. Duplicate detection uses the Discord thread URL in the `Ссылка` field. The old hidden marker is supported only as a backward-compatible fallback for older cards.
 
 Do not add visible technical id dumps unless the user asks. If changing visible formatting, show the proposed example to the user first.
 
@@ -80,6 +78,8 @@ src/config.ts                Env config
 src/discord/handlers.ts      Discord forum post handling
 src/discord/commands.ts      /sync-ticket
 src/discord/statusMessage.ts Single editable Discord status embed
+src/discord/ticketContent.ts Shared Trello description/starter-message helpers
+src/discord/repairTrelloDescriptions.ts Dry-run/apply repair tool for old descriptions
 src/discord/threadTags.ts    Best-effort forum tag updates
 src/trello/client.ts         Trello REST client and webhook utilities
 src/trello/webhook.ts        Trello webhook receiver and debounced status updates

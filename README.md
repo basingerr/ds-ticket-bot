@@ -9,6 +9,7 @@ Small bridge bot:
 - Trello webhook updates are debounced to avoid status spam during rapid card moves.
 - Discord title/description edits update the linked Trello card.
 - Trello completion/archive state archives or reopens the Discord thread.
+- Trello descriptions can be repaired from Discord with a dry-run tool.
 
 Production:
 
@@ -65,6 +66,14 @@ npm run trello:webhook -- create
 npm run trello:webhook -- delete <webhook_id>
 ```
 
+Repair Trello descriptions from saved Discord ticket links:
+
+```bash
+npm run repair:descriptions
+npm run repair:descriptions -- --apply
+npm run repair:descriptions -- --all --apply
+```
+
 Health endpoint:
 
 ```text
@@ -89,6 +98,14 @@ npm ci
 npm run build
 sudo systemctl restart ds-ticket-bot
 sudo journalctl -u ds-ticket-bot -n 80 --no-pager
+```
+
+Repair descriptions on production:
+
+```bash
+cd /opt/ds-ticket-bot
+npm run repair:descriptions:prod
+npm run repair:descriptions:prod -- --apply
 ```
 
 Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.

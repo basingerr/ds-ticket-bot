@@ -18,125 +18,9 @@ import {
 } from "../trello/client.js";
 import { applyStatusTag } from "./threadTags.js";
 import { upsertStatusMessage } from "./statusMessage.js";
+import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadName } from "./ticketContent.js";
 import { logger } from "../utils/logger.js";
 import { handleSyncTicketCommand } from "./commands.js";
-
-function valueOrNotAvailable(value: string | null | undefined): string {
-  return value && value.trim() !== "" ? value : "not_available";
-}
-
-function discordThreadLink(threadId: string): string {
-  return `https://discord.com/channels/${config.discord.guildId}/${threadId}`;
-}
-
-function trelloCardNameFromThreadName(threadName: string): string {
-  return threadName.startsWith("[QA] ") ? threadName : `[QA] ${threadName}`;
-}
-
-function attachmentLinks(message: Message | null): string {
-  if (!message || message.attachments.size === 0) {
-    return "";
-  }
-
-  return message.attachments.map((attachment) => `- ${attachment.url}`).join("\n");
-}
-
-function formatAuthor(message: Message | null, fallbackAuthorId: string | null): string {
-  if (!message) {
-    return valueOrNotAvailable(fallbackAuthorId);
-  }
-
-  const displayName = message.member?.displayName ?? message.author.globalName ?? message.author.username;
-  const username = message.author.discriminator === "0"
-    ? `@${message.author.username}`
-    : `${message.author.username}#${message.author.discriminator}`;
-
-  return `${displayName} (${username}, ${message.author.id})`;
-}
-
-function buildTrelloDescription(input: {
-  authorId: string | null;
-  thread: ThreadChannel;
-  starterMessage: Message | null;
-}): string {
-  const attachments = attachmentLinks(input.starterMessage);
-  const lines = [
-    "## Discord ticket",
-    "",
-    `**Автор:** ${formatAuthor(input.starterMessage, input.authorId)}`,
-    `**Тема:** ${input.thread.name}`,
-    `**Ссылка:** ${discordThreadLink(input.thread.id)}`,
-    "",
-    "### Описание",
-    valueOrNotAvailable(input.starterMessage?.content),
-  ];
-
-  if (attachments) {
-    lines.push("", "### Вложения", attachments);
-  }
-
-  lines.push(
-    "",
-    `<!-- Discord thread id: ${input.thread.id} -->`,
-  );
-
-  return lines.join("\n");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-async function fetchFirstUserMessage(thread: ThreadChannel): Promise<Message | null> {
-  try {
-    const messages = await thread.messages.fetch({ limit: 10 });
-    return messages
-      .filter((message) => !message.author.bot)
-      .sort((left, right) => left.createdTimestamp - right.createdTimestamp)
-      .first() ?? null;
-  } catch (error) {
-    logger.warn("thread messages unavailable", {
-      discord_thread_id: thread.id,
-      action: "fetch_first_user_message",
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
-}
-
-async function fetchStarterMessage(thread: ThreadChannel): Promise<Message | null> {
-  const attempts = 6;
-
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      const starterMessage = await thread.fetchStarterMessage();
-      if (starterMessage?.content || starterMessage?.attachments.size) {
-        return starterMessage;
-      }
-
-      const fallbackMessage = await fetchFirstUserMessage(thread);
-      if (fallbackMessage?.content || fallbackMessage?.attachments.size) {
-        return fallbackMessage;
-      }
-    } catch (error) {
-      if (attempt === attempts) {
-        logger.warn("starter message unavailable", {
-          discord_thread_id: thread.id,
-          action: "fetch_starter_message",
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    if (attempt < attempts) {
-      await sleep(1000);
-    }
-  }
-
-  return null;
-}
 
 async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   if (thread.parentId !== config.discord.forumChannelId) {
@@ -156,7 +40,7 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
 
   const starterMessage = await fetchStarterMessage(thread);
   const authorId = starterMessage?.author.id ?? thread.ownerId ?? null;
-  const description = buildTrelloDescription({ authorId, thread, starterMessage });
+  const description = await buildTrelloDescription({ authorId, thread, starterMessage });
   let card: CreatedTrelloCard | null = null;
 
   try {
@@ -291,7 +175,7 @@ async function handleStarterMessageUpdate(oldMessage: Message | PartialMessage, 
   }
 
   const authorId = resolvedNewMessage.author.id ?? thread.ownerId ?? null;
-  const description = buildTrelloDescription({ authorId, thread, starterMessage: resolvedNewMessage });
+  const description = await buildTrelloDescription({ authorId, thread, starterMessage: resolvedNewMessage });
 
   try {
     await updateTrelloCard({
