@@ -1,11 +1,20 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ButtonInteraction,
   ChannelType,
   Client,
+  EmbedBuilder,
   Events,
   Interaction,
   Message,
   MessageFlags,
+  ModalBuilder,
+  ModalSubmitInteraction,
   PartialMessage,
+  TextInputBuilder,
+  TextInputStyle,
   ThreadChannel,
 } from "discord.js";
 import { isBotReadonly } from "../botMode.js";
@@ -19,7 +28,7 @@ import {
   type CreatedTrelloCard,
 } from "../trello/client.js";
 import { applyStatusTag } from "./threadTags.js";
-import { upsertStatusMessage } from "./statusMessage.js";
+import { qaFixedButtonId, qaNeedsWorkButtonId, upsertStatusMessage } from "./statusMessage.js";
 import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadName } from "./ticketContent.js";
 import { applyStatusReaction } from "./statusReaction.js";
 import { logger } from "../utils/logger.js";
@@ -30,6 +39,234 @@ import {
   handleSyncTicketCommand,
   handleTesterStatsCommand,
 } from "./commands.js";
+
+const qaNeedsWorkModalId = "qa_feedback:needs_work_modal";
+const qaNeedsWorkDetailsInputId = "qa_feedback:needs_work_details";
+
+function truncateText(text: string, maxLength: number): string {
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
+async function sendQaReplyAlert(input: {
+  client: Client;
+  thread: ThreadChannel;
+  discordUrl: string;
+  trelloCardUrl: string | null;
+  status: string;
+  content: string;
+}): Promise<void> {
+  if (!config.qaReplyAlertStatuses.includes(input.status)) {
+    return;
+  }
+
+  const channel = await input.client.channels.fetch(config.qaReplyAlertChannelId);
+  if (!channel?.isSendable()) {
+    logger.warn("qa reply alert channel unavailable", {
+      channel_id: config.qaReplyAlertChannelId,
+      discord_thread_id: input.thread.id,
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0x8b5cf6)
+    .setTitle("QA ответил по тикету в тестировании")
+    .setDescription(truncateText(input.content, 900))
+    .addFields(
+      { name: "Тикет", value: `[${truncateText(input.thread.name, 120)}](${input.discordUrl})` },
+      { name: "Статус", value: input.status, inline: true },
+    )
+    .setTimestamp();
+
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel("Discord")
+      .setStyle(ButtonStyle.Link)
+      .setURL(input.discordUrl),
+  );
+
+  if (input.trelloCardUrl) {
+    buttons.addComponents(
+      new ButtonBuilder()
+        .setLabel("Trello")
+        .setStyle(ButtonStyle.Link)
+        .setURL(input.trelloCardUrl),
+    );
+  }
+
+  await channel.send({ embeds: [embed], components: [buttons] });
+}
+
+function discordThreadUrl(thread: ThreadChannel): string {
+  return `https://discord.com/channels/${config.discord.guildId}/${thread.id}`;
+}
+
+function isQaFeedbackStatus(status: string): boolean {
+  return config.qaReplyAlertStatuses.includes(status);
+}
+
+async function findQaFeedbackContext(interaction: ButtonInteraction | ModalSubmitInteraction): Promise<{
+  thread: ThreadChannel;
+  link: NonNullable<ReturnType<typeof findByDiscordThreadId>>;
+} | null> {
+  if (!interaction.channel?.isThread()) {
+    await interaction.reply({
+      content: "Это действие доступно только внутри ticket thread.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+
+  const thread = interaction.channel;
+  if (thread.parentId !== config.discord.forumChannelId) {
+    await interaction.reply({
+      content: "Это не настроенный ticket forum.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+
+  if (isBotReadonly()) {
+    await interaction.reply({
+      content: "Бот сейчас в readonly-режиме. QA feedback отключен.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+
+  const link = findByDiscordThreadId(thread.id);
+  if (!link) {
+    await interaction.reply({
+      content: "Связка с Trello-карточкой не найдена.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+
+  if (interaction.user.id !== link.discordAuthorId) {
+    await interaction.reply({
+      content: "Подтвердить результат может только автор тикета.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+
+  if (!isQaFeedbackStatus(link.status)) {
+    await interaction.reply({
+      content: `QA feedback доступен только в статусе: ${config.qaReplyAlertStatuses.join(", ")}.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return null;
+  }
+
+  return { thread, link };
+}
+
+async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void> {
+  const context = await findQaFeedbackContext(interaction);
+  if (!context) {
+    return;
+  }
+
+  const content = "QA подтвердил: исправлено.";
+  try {
+    await addTrelloCardComment(context.link.trelloCardId, content);
+    await sendQaReplyAlert({
+      client: interaction.client,
+      thread: context.thread,
+      discordUrl: discordThreadUrl(context.thread),
+      trelloCardUrl: context.link.trelloCardUrl,
+      status: context.link.status,
+      content,
+    });
+  } catch (error) {
+    logger.error("error", {
+      discord_thread_id: context.thread.id,
+      trello_card_id: context.link.trelloCardId,
+      action: "qa_fixed_feedback",
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    await interaction.reply({
+      content: "Не удалось отправить подтверждение. Команда проверит вручную.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.reply({
+    content: "Отправил подтверждение в Trello.",
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+async function handleQaNeedsWorkButton(interaction: ButtonInteraction): Promise<void> {
+  const context = await findQaFeedbackContext(interaction);
+  if (!context) {
+    return;
+  }
+
+  const modal = new ModalBuilder()
+    .setCustomId(qaNeedsWorkModalId)
+    .setTitle("Нужна доработка");
+
+  const details = new TextInputBuilder()
+    .setCustomId(qaNeedsWorkDetailsInputId)
+    .setLabel("Что не так?")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true)
+    .setMaxLength(1500);
+
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(details));
+  await interaction.showModal(modal);
+}
+
+async function handleQaNeedsWorkModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const context = await findQaFeedbackContext(interaction);
+  if (!context) {
+    return;
+  }
+
+  const details = interaction.fields.getTextInputValue(qaNeedsWorkDetailsInputId).trim();
+  if (!details) {
+    await interaction.reply({
+      content: "Пояснение не может быть пустым.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const content = `QA сообщил: нужна доработка.\n${details}`;
+  try {
+    await addTrelloCardComment(context.link.trelloCardId, content);
+    await sendQaReplyAlert({
+      client: interaction.client,
+      thread: context.thread,
+      discordUrl: discordThreadUrl(context.thread),
+      trelloCardUrl: context.link.trelloCardUrl,
+      status: context.link.status,
+      content,
+    });
+  } catch (error) {
+    logger.error("error", {
+      discord_thread_id: context.thread.id,
+      trello_card_id: context.link.trelloCardId,
+      action: "qa_needs_work_feedback",
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    await interaction.reply({
+      content: "Не удалось отправить доработку. Команда проверит вручную.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.reply({
+    content: "Отправил доработку в Trello.",
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
 async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   if (thread.parentId !== config.discord.forumChannelId) {
@@ -255,6 +492,14 @@ async function handleAuthorCommentCreate(message: Message): Promise<void> {
 
   try {
     await addTrelloCardComment(link.trelloCardId, `Автор добавил коммент в Discord:\n${content}`);
+    await sendQaReplyAlert({
+      client: message.client,
+      thread,
+      discordUrl: message.url,
+      trelloCardUrl: link.trelloCardUrl,
+      status: link.status,
+      content,
+    });
 
     logger.info("trello card comment added from discord author comment", {
       discord_thread_id: thread.id,
@@ -310,6 +555,25 @@ export function registerDiscordHandlers(client: Client): void {
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+    if (interaction.isButton()) {
+      if (interaction.customId === qaFixedButtonId) {
+        await handleQaFixedButton(interaction);
+        return;
+      }
+
+      if (interaction.customId === qaNeedsWorkButtonId) {
+        await handleQaNeedsWorkButton(interaction);
+        return;
+      }
+    }
+
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId === qaNeedsWorkModalId) {
+        await handleQaNeedsWorkModal(interaction);
+        return;
+      }
+    }
+
     if (!interaction.isChatInputCommand()) {
       return;
     }

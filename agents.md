@@ -56,6 +56,7 @@ Important: only one bot instance should run with the production Discord token. D
 - `/bot-mode` provides an admin-only emergency `active`/`readonly` switch persisted in SQLite.
 - `/bhealth` provides admin-only private diagnostics for Discord, Trello, SQLite, webhook, mode, public URL, and reconciliation.
 - `/blogs` provides admin-only private recent in-memory logs from the current bot process; it does not replace journalctl for logs before restart.
+- On QA testing statuses, the status embed shows author-only feedback buttons: fixed or needs work. Button actions add Trello comments and post compact alerts to `QA_REPLY_ALERT_CHANNEL_ID`.
 
 ## Current Trello card description format
 
@@ -129,6 +130,8 @@ WATCHDOG_ALERT_CHANNEL_ID=1374256075414442064
 WATCHDOG_INTERVAL_MS=300000
 WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
 READONLY_ALERT_AFTER_MS=1800000
+QA_REPLY_ALERT_CHANNEL_ID=1374256075414442064
+QA_REPLY_ALERT_STATUSES=Тестирование / на сервере
 ```
 
 Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
@@ -138,6 +141,8 @@ Emergency switch: `/bot-mode` can show/set `active` or `readonly`. Access is lim
 `/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
 
 Watchdog runs periodically and posts degraded/recovered health alerts to `WATCHDOG_ALERT_CHANNEL_ID`. The bot must be able to view/send messages in that channel. It should not spam identical failures; it only posts when the failure signature changes or recovers. It alerts if readonly stays enabled longer than `READONLY_ALERT_AFTER_MS`.
+
+QA feedback alerts are posted to `QA_REPLY_ALERT_CHANNEL_ID` for statuses listed in `QA_REPLY_ALERT_STATUSES`.
 
 Never commit `.env`.
 

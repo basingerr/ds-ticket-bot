@@ -17,6 +17,7 @@ Small bridge bot:
 - Trello descriptions can be repaired from Discord with a dry-run tool.
 - Bot-owned starter message reactions reflect the current ticket status.
 - A periodic reconciliation job repairs missed Trello/Discord status changes.
+- On QA testing statuses, the status embed shows author-only feedback buttons: fixed or needs work.
 
 Production:
 
@@ -58,6 +59,8 @@ WATCHDOG_ALERT_CHANNEL_ID=1374256075414442064
 WATCHDOG_INTERVAL_MS=300000
 WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
 READONLY_ALERT_AFTER_MS=1800000
+QA_REPLY_ALERT_CHANNEL_ID=1374256075414442064
+QA_REPLY_ALERT_STATUSES=Тестирование / на сервере
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.
@@ -147,6 +150,7 @@ In `readonly` mode the bot keeps `/health` and `/bot-mode`, but ignores Discord 
 `/blogs` uses the same admin access and privately shows recent in-memory logs from the current bot process.
 `/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
 Watchdog runs periodically and posts degraded/recovered health alerts to `WATCHDOG_ALERT_CHANNEL_ID`. It also alerts if readonly stays enabled longer than `READONLY_ALERT_AFTER_MS`.
+QA feedback alerts are posted to `QA_REPLY_ALERT_CHANNEL_ID` for statuses listed in `QA_REPLY_ALERT_STATUSES`.
 
 Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.
 

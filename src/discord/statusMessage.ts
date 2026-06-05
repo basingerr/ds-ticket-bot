@@ -1,6 +1,10 @@
-import { EmbedBuilder, ThreadChannel } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ThreadChannel } from "discord.js";
+import { config } from "../config.js";
 import { updateDiscordStatusMessageId, type TicketLink } from "../db/ticketLinks.js";
 import { logger } from "../utils/logger.js";
+
+export const qaFixedButtonId = "qa_feedback:fixed";
+export const qaNeedsWorkButtonId = "qa_feedback:needs_work";
 
 export type StatusMessageState =
   | { kind: "status"; status: string }
@@ -95,13 +99,33 @@ function buildStatusMessageStateEmbed(state: StatusMessageState): EmbedBuilder {
   return buildStatusEmbed(state.status);
 }
 
+function buildStatusComponents(state: StatusMessageState): ActionRowBuilder<ButtonBuilder>[] {
+  if (state.kind !== "status" || !config.qaReplyAlertStatuses.includes(state.status)) {
+    return [];
+  }
+
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(qaFixedButtonId)
+        .setLabel("Исправлено")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(qaNeedsWorkButtonId)
+        .setLabel("Нужна доработка")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
 async function upsertStatusMessageState(thread: ThreadChannel, link: TicketLink, state: StatusMessageState): Promise<string> {
   const embed = buildStatusMessageStateEmbed(state);
+  const components = buildStatusComponents(state);
 
   if (link.discordStatusMessageId) {
     try {
       const message = await thread.messages.fetch(link.discordStatusMessageId);
-      await message.edit({ embeds: [embed] });
+      await message.edit({ embeds: [embed], components });
       return message.id;
     } catch (error) {
       logger.warn("status message edit failed, creating a new one", {
@@ -112,7 +136,7 @@ async function upsertStatusMessageState(thread: ThreadChannel, link: TicketLink,
     }
   }
 
-  const message = await thread.send({ embeds: [embed] });
+  const message = await thread.send({ embeds: [embed], components });
   updateDiscordStatusMessageId(link.id, message.id);
   return message.id;
 }

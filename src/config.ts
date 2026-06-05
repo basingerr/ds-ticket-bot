@@ -77,4 +77,6 @@ export const config = {
   watchdogIntervalMs: optionalNumber("WATCHDOG_INTERVAL_MS", 300000),
   watchdogRecoveryCooldownMs: optionalNumber("WATCHDOG_RECOVERY_COOLDOWN_MS", 1800000),
   readonlyAlertAfterMs: optionalNumber("READONLY_ALERT_AFTER_MS", 1800000),
+  qaReplyAlertChannelId: optional("QA_REPLY_ALERT_CHANNEL_ID", optional("WATCHDOG_ALERT_CHANNEL_ID", "1374256075414442064")),
+  qaReplyAlertStatuses: optionalCsv("QA_REPLY_ALERT_STATUSES", ["Тестирование / на сервере"]),
 };
