@@ -10,6 +10,7 @@ Small bridge bot:
 - Discord title/description edits update the linked Trello card.
 - Trello completion/archive state archives or reopens the Discord thread.
 - Trello descriptions can be repaired from Discord with a dry-run tool.
+- Bot-owned starter message reactions reflect the current ticket status.
 
 Production:
 

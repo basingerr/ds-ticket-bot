@@ -6,6 +6,7 @@ import { getTrelloCardWithList } from "./client.js";
 import { statusFromListName } from "./statusMap.js";
 import { applyStatusTag } from "../discord/threadTags.js";
 import { upsertStatusMessage } from "../discord/statusMessage.js";
+import { applyStatusReaction } from "../discord/statusReaction.js";
 import { logger } from "../utils/logger.js";
 
 type TrelloWebhookBody = {
@@ -62,6 +63,7 @@ async function updateDiscordThread(client: Client, trelloCardId: string, status:
 
   await upsertStatusMessage(channel, link, status);
   await applyStatusTag(channel, status);
+  await applyStatusReaction(channel, status);
 }
 
 async function setDiscordThreadArchived(client: Client, trelloCardId: string, archived: boolean): Promise<void> {

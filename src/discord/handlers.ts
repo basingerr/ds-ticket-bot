@@ -19,6 +19,7 @@ import {
 import { applyStatusTag } from "./threadTags.js";
 import { upsertStatusMessage } from "./statusMessage.js";
 import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadName } from "./ticketContent.js";
+import { applyStatusReaction } from "./statusReaction.js";
 import { logger } from "../utils/logger.js";
 import { handleSyncTicketCommand } from "./commands.js";
 
@@ -92,6 +93,7 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
 
     await upsertStatusMessage(thread, link, "New");
     await applyStatusTag(thread, "New");
+    await applyStatusReaction(thread, "New");
 
     logger.info("discord thread updated", {
       discord_thread_id: thread.id,

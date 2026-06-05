@@ -4,6 +4,7 @@ import { getTrelloCardWithList } from "../trello/client.js";
 import { statusFromListName } from "../trello/statusMap.js";
 import { applyStatusTag } from "./threadTags.js";
 import { upsertStatusMessage } from "./statusMessage.js";
+import { applyStatusReaction } from "./statusReaction.js";
 import { logger } from "../utils/logger.js";
 
 export const syncTicketCommand = new SlashCommandBuilder()
@@ -42,6 +43,7 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
 
     await upsertStatusMessage(channel, updatedLink, status);
     await applyStatusTag(channel, status);
+    await applyStatusReaction(channel, status);
 
     await interaction.reply(`Тикет синхронизирован.\nТекущий статус: ${status}.`);
   } catch (error) {

@@ -47,6 +47,7 @@ Important: only one bot instance should run with the production Discord token. D
 - Discord thread title edits update the Trello card title and add a Trello comment.
 - Discord starter message edits update the Trello card description and add a Trello comment.
 - Trello card completion/archive state archives or reopens the Discord thread.
+- Bot-owned starter message reactions reflect real board statuses: `🕓`, `🔧`, `🔁`, `✅`, fallback `⚠️`.
 
 ## Current Trello card description format
 
@@ -78,6 +79,7 @@ src/config.ts                Env config
 src/discord/handlers.ts      Discord forum post handling
 src/discord/commands.ts      /sync-ticket
 src/discord/statusMessage.ts Single editable Discord status embed
+src/discord/statusReaction.ts Bot-owned starter-message status reactions
 src/discord/ticketContent.ts Shared Trello description/starter-message helpers
 src/discord/repairTrelloDescriptions.ts Dry-run/apply repair tool for old descriptions
 src/discord/threadTags.ts    Best-effort forum tag updates

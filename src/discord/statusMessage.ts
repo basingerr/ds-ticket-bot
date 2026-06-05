@@ -62,7 +62,7 @@ function buildStatusEmbed(status: string): EmbedBuilder {
 
   const note = noteForStatus(status);
   if (note) {
-    embed.addFields({ name: "Что дальше", value: note });
+    embed.addFields({ name: "Порядок действий", value: note });
   }
 
   return embed;
