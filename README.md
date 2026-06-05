@@ -110,6 +110,32 @@ npm run repair:descriptions:prod -- --apply
 
 Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.
 
+## Useful production commands
+
+Run on the VDS from `/opt/ds-ticket-bot`.
+
+```bash
+# Update bot from Git and restart
+git pull
+npm ci
+npm run build
+sudo systemctl restart ds-ticket-bot
+
+# Logs
+sudo journalctl -u ds-ticket-bot -n 80 --no-pager
+sudo journalctl -u ds-ticket-bot -f
+
+# Repair old Trello descriptions from Discord
+npm run repair:descriptions:prod
+npm run repair:descriptions:prod -- --apply
+npm run repair:descriptions:prod -- --all --apply
+
+# Trello webhooks
+npm run trello:webhook:prod -- list
+npm run trello:webhook:prod -- create
+npm run trello:webhook:prod -- delete <webhook_id>
+```
+
 ## Deployment note
 
 Discord events can work locally if the bot is online and has the right gateway intents.

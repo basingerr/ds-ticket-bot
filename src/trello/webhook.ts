@@ -37,6 +37,16 @@ type PendingStatusUpdate = {
 
 const pendingStatusUpdates = new Map<string, PendingStatusUpdate>();
 
+function clearPendingStatusUpdate(trelloCardId: string): void {
+  const pending = pendingStatusUpdates.get(trelloCardId);
+  if (!pending) {
+    return;
+  }
+
+  clearTimeout(pending.timer);
+  pendingStatusUpdates.delete(trelloCardId);
+}
+
 async function updateDiscordThread(client: Client, trelloCardId: string, status: string): Promise<void> {
   const link = findByTrelloCardId(trelloCardId);
   if (!link) {
@@ -84,14 +94,24 @@ async function syncTrelloCardCurrentStatus(client: Client, trelloCardId: string)
   await applyTrelloCardMove(client, trelloCardId, status);
 }
 
-async function handleTrelloClosedStateChange(client: Client, trelloCardId: string, isClosed: boolean): Promise<void> {
+async function handleTrelloClosedState(client: Client, trelloCardId: string): Promise<boolean> {
+  const card = await getTrelloCardWithList(trelloCardId);
+  const isClosed = card.closed || card.dueComplete;
+
+  logger.info("trello card closed state checked", {
+    trello_card_id: trelloCardId,
+    closed: card.closed,
+    due_complete: card.dueComplete,
+    is_closed: isClosed,
+  });
+
   if (isClosed) {
     await setDiscordThreadArchived(client, trelloCardId, true);
-    return;
+    return true;
   }
 
   await setDiscordThreadArchived(client, trelloCardId, false);
-  await syncTrelloCardCurrentStatus(client, trelloCardId);
+  return false;
 }
 
 async function applyTrelloCardMove(client: Client, trelloCardId: string, status: string): Promise<void> {
@@ -138,7 +158,7 @@ async function applyTrelloCardMove(client: Client, trelloCardId: string, status:
 function scheduleTrelloCardMove(client: Client, trelloCardId: string, status: string): void {
   const pending = pendingStatusUpdates.get(trelloCardId);
   if (pending) {
-    clearTimeout(pending.timer);
+    clearPendingStatusUpdate(trelloCardId);
   }
 
   const timer = setTimeout(() => {
@@ -183,22 +203,18 @@ export function createTrelloWebhookRouter(client: Client): Router {
       return;
     }
 
-    const closedChanged = data?.old?.closed !== undefined && data.card?.closed !== undefined;
-    const dueCompleteChanged = data?.old?.dueComplete !== undefined && data.card?.dueComplete !== undefined;
-
-    if (closedChanged || dueCompleteChanged) {
-      const isClosed = data?.card?.closed === true || data?.card?.dueComplete === true;
-
-      try {
-        await handleTrelloClosedStateChange(client, trelloCardId, isClosed);
-      } catch (error) {
-        logger.error("error", {
-          trello_card_id: trelloCardId,
-          action: "sync_discord_thread_archive_from_trello",
-          error: error instanceof Error ? error.message : String(error),
-        });
+    try {
+      const isClosed = await handleTrelloClosedState(client, trelloCardId);
+      if (isClosed) {
+        clearPendingStatusUpdate(trelloCardId);
+        return;
       }
-
+    } catch (error) {
+      logger.error("error", {
+        trello_card_id: trelloCardId,
+        action: "sync_discord_thread_archive_from_trello",
+        error: error instanceof Error ? error.message : String(error),
+      });
       return;
     }
 
