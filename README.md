@@ -52,6 +52,7 @@ RECONCILE_INTERVAL_MS=300000
 BOT_DEFAULT_MODE=active
 BOT_ADMIN_USER_IDS=
 BOT_ADMIN_ROLE_IDS=
+TESTER_STATS_ROLE_IDS=1253347054000803922,1443903847046053949
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.
@@ -135,6 +136,7 @@ Emergency readonly switch:
 
 Only users listed in `BOT_ADMIN_USER_IDS` or members with roles listed in `BOT_ADMIN_ROLE_IDS` can use it.
 In `readonly` mode the bot keeps `/health` and `/bot-mode`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
+`/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
 
 Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.
 

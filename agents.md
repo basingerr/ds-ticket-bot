@@ -121,11 +121,14 @@ RECONCILE_INTERVAL_MS=300000
 BOT_DEFAULT_MODE=active
 BOT_ADMIN_USER_IDS=
 BOT_ADMIN_ROLE_IDS=
+TESTER_STATS_ROLE_IDS=1253347054000803922,1443903847046053949
 ```
 
 Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
 
 Emergency switch: `/bot-mode` can show/set `active` or `readonly`. Access is limited by `BOT_ADMIN_USER_IDS` or `BOT_ADMIN_ROLE_IDS`. In `readonly`, the bot keeps health and `/bot-mode`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
+
+`/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
 
 Never commit `.env`.
 

@@ -58,8 +58,8 @@ export const botModeCommand = new SlashCommandBuilder()
       ),
   );
 
-function hasAllowedRole(interaction: ChatInputCommandInteraction): boolean {
-  const allowedRoleIds = new Set(config.botAdminRoleIds);
+function hasAnyAllowedRole(interaction: ChatInputCommandInteraction, roleIds: string[]): boolean {
+  const allowedRoleIds = new Set(roleIds);
   if (allowedRoleIds.size === 0) {
     return false;
   }
@@ -81,7 +81,11 @@ function hasAllowedRole(interaction: ChatInputCommandInteraction): boolean {
 }
 
 function canManageBotMode(interaction: ChatInputCommandInteraction): boolean {
-  return config.botAdminUserIds.includes(interaction.user.id) || hasAllowedRole(interaction);
+  return config.botAdminUserIds.includes(interaction.user.id) || hasAnyAllowedRole(interaction, config.botAdminRoleIds);
+}
+
+function canUseTesterStats(interaction: ChatInputCommandInteraction): boolean {
+  return hasAnyAllowedRole(interaction, config.testerStatsRoleIds);
 }
 
 function botModeLabel(mode: BotMode): string {
@@ -303,6 +307,14 @@ async function userLabel(interaction: ChatInputCommandInteraction, userId: Snowf
 }
 
 export async function handleTesterStatsCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!canUseTesterStats(interaction)) {
+    await interaction.reply({
+      content: "Нет доступа к статистике тикетов.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   const limit = interaction.options.getInteger("limit") ?? 10;
   const maxThreads = interaction.options.getInteger("max_threads") ?? 500;
   const includeArchived = interaction.options.getBoolean("archived") ?? true;

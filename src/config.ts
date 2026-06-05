@@ -26,10 +26,10 @@ function optionalNumber(name: string, fallback: number): number {
   return parsed;
 }
 
-function optionalCsv(name: string): string[] {
+function optionalCsv(name: string, fallback: string[] = []): string[] {
   const value = process.env[name];
   if (!value || value.trim() === "") {
-    return [];
+    return fallback;
   }
 
   return value
@@ -68,4 +68,5 @@ export const config = {
   botDefaultMode: optionalBotMode("BOT_DEFAULT_MODE", "active"),
   botAdminUserIds: optionalCsv("BOT_ADMIN_USER_IDS"),
   botAdminRoleIds: optionalCsv("BOT_ADMIN_ROLE_IDS"),
+  testerStatsRoleIds: optionalCsv("TESTER_STATS_ROLE_IDS", ["1253347054000803922", "1443903847046053949"]),
 };
