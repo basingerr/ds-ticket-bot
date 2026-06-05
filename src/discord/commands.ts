@@ -264,7 +264,10 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
     await applyStatusTag(channel, status);
     await applyStatusReaction(channel, status);
 
-    await interaction.reply(`Тикет синхронизирован.\nТекущий статус: ${status}.`);
+    await interaction.reply({
+      content: `Тикет синхронизирован.\nТекущий статус: ${status}.`,
+      flags: MessageFlags.Ephemeral,
+    });
   } catch (error) {
     logger.error("error", {
       discord_thread_id: channel.id,
