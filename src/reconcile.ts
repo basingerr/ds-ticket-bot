@@ -13,11 +13,29 @@ function isTrelloNotFoundError(error: unknown): boolean {
   return error instanceof Error && error.message.includes("Trello API error 404");
 }
 
+function isDiscordUnknownChannelError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("Unknown Channel");
+}
+
 async function closeMissingTrelloCardThread(
   client: Client,
   link: TicketLink,
 ): Promise<"updated" | "unchanged" | "skipped"> {
-  const channel = await client.channels.fetch(link.discordThreadId);
+  let channel;
+  try {
+    channel = await client.channels.fetch(link.discordThreadId);
+  } catch (error) {
+    if (isDiscordUnknownChannelError(error)) {
+      logger.warn("reconcile skipped: discord thread unknown for missing trello card", {
+        discord_thread_id: link.discordThreadId,
+        trello_card_id: link.trelloCardId,
+      });
+      return "skipped";
+    }
+
+    throw error;
+  }
+
   if (!channel || !channel.isThread()) {
     logger.warn("reconcile skipped: discord thread not found for missing trello card", {
       discord_thread_id: link.discordThreadId,
@@ -49,7 +67,21 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
   const status = statusFromListName(card.listName);
   const shouldBeArchived = card.dueComplete || card.closed;
 
-  const channel = await client.channels.fetch(link.discordThreadId);
+  let channel;
+  try {
+    channel = await client.channels.fetch(link.discordThreadId);
+  } catch (error) {
+    if (isDiscordUnknownChannelError(error)) {
+      logger.warn("reconcile skipped: discord thread unknown", {
+        discord_thread_id: link.discordThreadId,
+        trello_card_id: link.trelloCardId,
+      });
+      return "skipped";
+    }
+
+    throw error;
+  }
+
   if (!channel || !channel.isThread()) {
     logger.warn("reconcile skipped: discord thread not found", {
       discord_thread_id: link.discordThreadId,

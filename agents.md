@@ -55,6 +55,7 @@ Important: only one bot instance should run with the production Discord token. D
 - Periodic reconciliation job checks SQLite links against Trello and repairs missed Discord status/archive changes.
 - `/bot-mode` provides an admin-only emergency `active`/`readonly` switch persisted in SQLite.
 - `/bhealth` provides admin-only private diagnostics for Discord, Trello, SQLite, webhook, mode, public URL, and reconciliation.
+- `/blogs` provides admin-only private recent in-memory logs from the current bot process; it does not replace journalctl for logs before restart.
 
 ## Current Trello card description format
 

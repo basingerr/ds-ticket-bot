@@ -18,7 +18,7 @@ import { statusFromListName } from "../trello/statusMap.js";
 import { applyStatusTag } from "./threadTags.js";
 import { upsertStatusMessage } from "./statusMessage.js";
 import { applyStatusReaction } from "./statusReaction.js";
-import { logger } from "../utils/logger.js";
+import { getRecentLogs, logger, type LogEntry, type LogLevel } from "../utils/logger.js";
 
 export const syncTicketCommand = new SlashCommandBuilder()
   .setName("sync-ticket")
@@ -63,6 +63,28 @@ export const botModeCommand = new SlashCommandBuilder()
 export const botHealthCommand = new SlashCommandBuilder()
   .setName("bhealth")
   .setDescription("Проверить здоровье Discord/Trello/SQLite bridge.");
+
+export const botLogsCommand = new SlashCommandBuilder()
+  .setName("blogs")
+  .setDescription("Показать последние логи текущего процесса бота.")
+  .addStringOption((option) =>
+    option
+      .setName("level")
+      .setDescription("Фильтр уровня логов.")
+      .addChoices(
+        { name: "all", value: "all" },
+        { name: "info", value: "info" },
+        { name: "warn", value: "warn" },
+        { name: "error", value: "error" },
+      ),
+  )
+  .addIntegerOption((option) =>
+    option
+      .setName("limit")
+      .setDescription("Сколько строк показать.")
+      .setMinValue(5)
+      .setMaxValue(50),
+  );
 
 function hasAnyAllowedRole(interaction: ChatInputCommandInteraction, roleIds: string[]): boolean {
   const allowedRoleIds = new Set(roleIds);
@@ -152,6 +174,60 @@ export async function handleBotHealthCommand(interaction: ChatInputCommandIntera
     .setTimestamp();
 
   await interaction.editReply({ embeds: [embed] });
+}
+
+function compactJson(value: unknown, maxLength: number): string {
+  const text = JSON.stringify(value);
+  if (!text) {
+    return "";
+  }
+
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
+function formatLogEntry(entry: LogEntry): string {
+  const time = entry.timestamp.slice(11, 19);
+  const context = entry.context ? ` ${compactJson(entry.context, 220)}` : "";
+  return `${time} ${entry.level.toUpperCase()} ${entry.message}${context}`;
+}
+
+export async function handleBotLogsCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  logger.info("bot logs command executed", {
+    user_id: interaction.user.id,
+    level: interaction.options.getString("level"),
+    limit: interaction.options.getInteger("limit"),
+  });
+
+  if (!canManageBotMode(interaction)) {
+    await interaction.reply({
+      content: "Нет доступа к логам бота.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const level = (interaction.options.getString("level") ?? "all") as LogLevel | "all";
+  const limit = interaction.options.getInteger("limit") ?? 20;
+  const logs = getRecentLogs({ level, limit });
+
+  if (logs.length === 0) {
+    await interaction.reply({
+      content: "Логов по этому фильтру пока нет.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const lines = logs.map(formatLogEntry);
+  let body = lines.join("\n");
+  if (body.length > 3900) {
+    body = `${body.slice(0, 3899)}…`;
+  }
+
+  await interaction.reply({
+    content: [`Последние логи: level=${level}, limit=${limit}`, "", "```text", body, "```"].join("\n"),
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
 export async function handleSyncTicketCommand(interaction: ChatInputCommandInteraction): Promise<void> {

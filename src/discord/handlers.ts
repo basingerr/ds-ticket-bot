@@ -23,7 +23,13 @@ import { upsertStatusMessage } from "./statusMessage.js";
 import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadName } from "./ticketContent.js";
 import { applyStatusReaction } from "./statusReaction.js";
 import { logger } from "../utils/logger.js";
-import { handleBotHealthCommand, handleBotModeCommand, handleSyncTicketCommand, handleTesterStatsCommand } from "./commands.js";
+import {
+  handleBotHealthCommand,
+  handleBotLogsCommand,
+  handleBotModeCommand,
+  handleSyncTicketCommand,
+  handleTesterStatsCommand,
+} from "./commands.js";
 
 async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   if (thread.parentId !== config.discord.forumChannelId) {
@@ -333,6 +339,11 @@ export function registerDiscordHandlers(client: Client): void {
 
     if (interaction.commandName === "bhealth") {
       await handleBotHealthCommand(interaction);
+      return;
+    }
+
+    if (interaction.commandName === "blogs") {
+      await handleBotLogsCommand(interaction);
     }
   });
 }
