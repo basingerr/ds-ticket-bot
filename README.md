@@ -48,6 +48,9 @@ DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
 TRELLO_STATUS_DEBOUNCE_MS=2500
 RECONCILE_INTERVAL_MS=300000
+BOT_DEFAULT_MODE=active
+BOT_ADMIN_USER_IDS=
+BOT_ADMIN_ROLE_IDS=
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.
@@ -120,6 +123,17 @@ cd /opt/ds-ticket-bot
 npm run repair:descriptions:prod
 npm run repair:descriptions:prod -- --apply
 ```
+
+Emergency readonly switch:
+
+```text
+/bot-mode
+/bot-mode mode:readonly
+/bot-mode mode:active
+```
+
+Only users listed in `BOT_ADMIN_USER_IDS` or members with roles listed in `BOT_ADMIN_ROLE_IDS` can use it.
+In `readonly` mode the bot keeps `/health` and `/bot-mode`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
 
 Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.
 

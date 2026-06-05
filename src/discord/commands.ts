@@ -2,11 +2,13 @@ import {
   ChannelType,
   ChatInputCommandInteraction,
   ForumChannel,
+  GuildMemberRoleManager,
   MessageFlags,
   SlashCommandBuilder,
   Snowflake,
   ThreadChannel,
 } from "discord.js";
+import { getBotMode, setBotMode, type BotMode } from "../botMode.js";
 import { config } from "../config.js";
 import { findByDiscordThreadId, updateStatus } from "../db/ticketLinks.js";
 import { getTrelloCardWithList } from "../trello/client.js";
@@ -42,6 +44,79 @@ export const testerStatsCommand = new SlashCommandBuilder()
       .setName("archived")
       .setDescription("Включить архивные темы. По умолчанию: да."),
   );
+
+export const botModeCommand = new SlashCommandBuilder()
+  .setName("bot-mode")
+  .setDescription("Показать или переключить аварийный режим бота.")
+  .addStringOption((option) =>
+    option
+      .setName("mode")
+      .setDescription("Новый режим. Без значения команда покажет текущий режим.")
+      .addChoices(
+        { name: "active", value: "active" },
+        { name: "readonly", value: "readonly" },
+      ),
+  );
+
+function hasAllowedRole(interaction: ChatInputCommandInteraction): boolean {
+  const allowedRoleIds = new Set(config.botAdminRoleIds);
+  if (allowedRoleIds.size === 0) {
+    return false;
+  }
+
+  const roles = interaction.member?.roles;
+  if (!roles) {
+    return false;
+  }
+
+  if (Array.isArray(roles)) {
+    return roles.some((roleId) => allowedRoleIds.has(roleId));
+  }
+
+  if (roles instanceof GuildMemberRoleManager) {
+    return roles.cache.some((role) => allowedRoleIds.has(role.id));
+  }
+
+  return false;
+}
+
+function canManageBotMode(interaction: ChatInputCommandInteraction): boolean {
+  return config.botAdminUserIds.includes(interaction.user.id) || hasAllowedRole(interaction);
+}
+
+function botModeLabel(mode: BotMode): string {
+  return mode === "active" ? "active - бот работает" : "readonly - бот ничего не создает и не синхронизирует";
+}
+
+export async function handleBotModeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  logger.info("bot mode command executed", {
+    user_id: interaction.user.id,
+    requested_mode: interaction.options.getString("mode"),
+  });
+
+  if (!canManageBotMode(interaction)) {
+    await interaction.reply({
+      content: "Нет доступа к аварийному переключателю бота.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const requestedMode = interaction.options.getString("mode") as BotMode | null;
+  if (requestedMode) {
+    setBotMode(requestedMode);
+    await interaction.reply({
+      content: `Режим бота переключен: ${botModeLabel(requestedMode)}.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.reply({
+    content: `Текущий режим бота: ${botModeLabel(getBotMode())}.`,
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
 export async function handleSyncTicketCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   const channel = interaction.channel;

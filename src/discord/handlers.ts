@@ -4,9 +4,11 @@ import {
   Events,
   Interaction,
   Message,
+  MessageFlags,
   PartialMessage,
   ThreadChannel,
 } from "discord.js";
+import { isBotReadonly } from "../botMode.js";
 import { config } from "../config.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
 import {
@@ -21,7 +23,7 @@ import { upsertStatusMessage } from "./statusMessage.js";
 import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadName } from "./ticketContent.js";
 import { applyStatusReaction } from "./statusReaction.js";
 import { logger } from "../utils/logger.js";
-import { handleSyncTicketCommand, handleTesterStatsCommand } from "./commands.js";
+import { handleBotModeCommand, handleSyncTicketCommand, handleTesterStatsCommand } from "./commands.js";
 
 async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   if (thread.parentId !== config.discord.forumChannelId) {
@@ -29,6 +31,11 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   }
 
   logger.info("discord forum post detected", { discord_thread_id: thread.id });
+
+  if (isBotReadonly()) {
+    logger.warn("discord forum post ignored: bot readonly", { discord_thread_id: thread.id });
+    return;
+  }
 
   const existing = findByDiscordThreadId(thread.id);
   if (existing) {
@@ -114,6 +121,11 @@ async function handleForumThreadUpdate(oldThread: ThreadChannel, newThread: Thre
     return;
   }
 
+  if (isBotReadonly()) {
+    logger.warn("discord thread title update ignored: bot readonly", { discord_thread_id: newThread.id });
+    return;
+  }
+
   const link = findByDiscordThreadId(newThread.id);
   if (!link) {
     return;
@@ -158,6 +170,11 @@ async function handleStarterMessageUpdate(oldMessage: Message | PartialMessage, 
 
   const thread = resolvedNewMessage.channel;
   if (thread.parentId !== config.discord.forumChannelId) {
+    return;
+  }
+
+  if (isBotReadonly()) {
+    logger.warn("discord starter message update ignored: bot readonly", { discord_thread_id: thread.id });
     return;
   }
 
@@ -239,12 +256,25 @@ export function registerDiscordHandlers(client: Client): void {
     }
 
     if (interaction.commandName === "sync-ticket") {
+      if (isBotReadonly()) {
+        await interaction.reply({
+          content: "Бот сейчас в readonly-режиме. Синхронизация отключена.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       await handleSyncTicketCommand(interaction);
       return;
     }
 
     if (interaction.commandName === "tester-stats") {
       await handleTesterStatsCommand(interaction);
+      return;
+    }
+
+    if (interaction.commandName === "bot-mode") {
+      await handleBotModeCommand(interaction);
     }
   });
 }

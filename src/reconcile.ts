@@ -1,4 +1,5 @@
 import { Client } from "discord.js";
+import { isBotReadonly } from "./botMode.js";
 import { config } from "./config.js";
 import { listTicketLinks, updateStatus, type TicketLink } from "./db/ticketLinks.js";
 import { applyStatusReaction } from "./discord/statusReaction.js";
@@ -97,6 +98,11 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
 }
 
 export async function runReconciliation(client: Client): Promise<void> {
+  if (isBotReadonly()) {
+    logger.warn("reconciliation skipped: bot readonly");
+    return;
+  }
+
   const links = listTicketLinks();
   let updated = 0;
   let unchanged = 0;

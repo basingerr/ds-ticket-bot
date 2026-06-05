@@ -1,5 +1,6 @@
 import { Client } from "discord.js";
 import express, { Router } from "express";
+import { isBotReadonly } from "../botMode.js";
 import { config } from "../config.js";
 import { findByTrelloCardId, updateStatus } from "../db/ticketLinks.js";
 import { getTrelloCardWithList } from "./client.js";
@@ -244,6 +245,14 @@ export function createTrelloWebhookRouter(client: Client): Router {
       action_type: action?.type,
       trello_card_id: action?.data?.card?.id,
     });
+
+    if (isBotReadonly()) {
+      logger.warn("trello webhook ignored: bot readonly", {
+        action_type: action?.type,
+        trello_card_id: action?.data?.card?.id,
+      });
+      return;
+    }
 
     const data = action?.data;
     const trelloCardId = data?.card?.id;

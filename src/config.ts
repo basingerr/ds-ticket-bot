@@ -26,6 +26,27 @@ function optionalNumber(name: string, fallback: number): number {
   return parsed;
 }
 
+function optionalCsv(name: string): string[] {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function optionalBotMode(name: string, fallback: "active" | "readonly"): "active" | "readonly" {
+  const value = optional(name, fallback);
+  if (value !== "active" && value !== "readonly") {
+    throw new Error(`Invalid bot mode env var: ${name}`);
+  }
+
+  return value;
+}
+
 export const config = {
   discord: {
     token: required("DISCORD_TOKEN"),
@@ -44,4 +65,7 @@ export const config = {
   port: Number(optional("PORT", "3000")),
   trelloStatusDebounceMs: optionalNumber("TRELLO_STATUS_DEBOUNCE_MS", 2500),
   reconcileIntervalMs: optionalNumber("RECONCILE_INTERVAL_MS", 300000),
+  botDefaultMode: optionalBotMode("BOT_DEFAULT_MODE", "active"),
+  botAdminUserIds: optionalCsv("BOT_ADMIN_USER_IDS"),
+  botAdminRoleIds: optionalCsv("BOT_ADMIN_ROLE_IDS"),
 };
