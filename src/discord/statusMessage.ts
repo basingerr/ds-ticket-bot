@@ -120,8 +120,22 @@ function buildStatusComponents(state: StatusMessageState): ActionRowBuilder<Butt
 async function upsertStatusMessageState(thread: ThreadChannel, link: TicketLink, state: StatusMessageState): Promise<string> {
   const embed = buildStatusMessageStateEmbed(state);
   const components = buildStatusComponents(state);
+  const shouldSendFinalMessageAtBottom = state.kind !== "status";
 
-  if (link.discordStatusMessageId) {
+  if (shouldSendFinalMessageAtBottom && link.discordStatusMessageId) {
+    try {
+      const message = await thread.messages.fetch(link.discordStatusMessageId);
+      await message.delete();
+    } catch (error) {
+      logger.warn("old status message delete failed before final status, creating a new one", {
+        discord_thread_id: thread.id,
+        discord_status_message_id: link.discordStatusMessageId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (!shouldSendFinalMessageAtBottom && link.discordStatusMessageId) {
     try {
       const message = await thread.messages.fetch(link.discordStatusMessageId);
       await message.edit({ embeds: [embed], components });

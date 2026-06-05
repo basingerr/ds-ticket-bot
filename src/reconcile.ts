@@ -3,7 +3,7 @@ import { isBotReadonly } from "./botMode.js";
 import { config } from "./config.js";
 import { listTicketLinks, updateStatus, type TicketLink } from "./db/ticketLinks.js";
 import { applyStatusReaction } from "./discord/statusReaction.js";
-import { upsertStatusMessage } from "./discord/statusMessage.js";
+import { upsertCompletedStatusMessage, upsertManualCloseStatusMessage, upsertStatusMessage } from "./discord/statusMessage.js";
 import { applyStatusTag } from "./discord/threadTags.js";
 import { getTrelloCardWithList } from "./trello/client.js";
 import { statusFromListName } from "./trello/statusMap.js";
@@ -94,6 +94,19 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
 
   if (shouldBeArchived) {
     if (!channel.archived) {
+      if (card.dueComplete) {
+        await upsertCompletedStatusMessage(channel, link, status);
+        await applyStatusReaction(channel, "Готово");
+      } else {
+        await upsertManualCloseStatusMessage(
+          channel,
+          link,
+          "Внутренняя Trello-карточка архивирована. Команда проверит вручную.",
+          status,
+        );
+        await applyStatusReaction(channel, "manual_close");
+      }
+
       await channel.setArchived(true, card.dueComplete ? "Trello reconciliation: ticket completed" : "Trello reconciliation: card archived");
       changed = true;
     }
