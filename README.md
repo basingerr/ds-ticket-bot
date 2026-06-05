@@ -9,6 +9,7 @@ Small bridge bot:
 - `/tester-stats` shows the most active Discord forum thread authors.
 - Trello webhook updates are debounced to avoid status spam during rapid card moves.
 - Discord title/description edits update the linked Trello card.
+- New Discord comments from the original ticket author are copied to Trello comments.
 - Trello completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
 - Moving a card to `Готово` only changes status; it does not archive the Discord thread by itself.

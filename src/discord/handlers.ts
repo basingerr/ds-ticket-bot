@@ -217,6 +217,55 @@ async function handleStarterMessageUpdate(oldMessage: Message | PartialMessage, 
   }
 }
 
+async function handleAuthorCommentCreate(message: Message): Promise<void> {
+  if (!message.channel.isThread() || message.author.bot) {
+    return;
+  }
+
+  const thread = message.channel;
+  if (thread.parentId !== config.discord.forumChannelId) {
+    return;
+  }
+
+  if (isBotReadonly()) {
+    logger.warn("discord author comment ignored: bot readonly", { discord_thread_id: thread.id });
+    return;
+  }
+
+  const link = findByDiscordThreadId(thread.id);
+  if (!link || message.author.id !== link.discordAuthorId) {
+    return;
+  }
+
+  const starterMessage = await fetchStarterMessage(thread);
+  if (starterMessage?.id === message.id) {
+    return;
+  }
+
+  const content = message.content.trim();
+  if (!content) {
+    return;
+  }
+
+  try {
+    await addTrelloCardComment(link.trelloCardId, `Автор добавил коммент в Discord:\n${content}`);
+
+    logger.info("trello card comment added from discord author comment", {
+      discord_thread_id: thread.id,
+      discord_message_id: message.id,
+      trello_card_id: link.trelloCardId,
+    });
+  } catch (error) {
+    logger.error("error", {
+      discord_thread_id: thread.id,
+      discord_message_id: message.id,
+      trello_card_id: link.trelloCardId,
+      action: "add_trello_comment_from_discord_author_comment",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export function registerDiscordHandlers(client: Client): void {
   client.once(Events.ClientReady, (readyClient) => {
     logger.info("bot started", { discord_user: readyClient.user.tag });
@@ -248,6 +297,10 @@ export function registerDiscordHandlers(client: Client): void {
 
   client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
     await handleStarterMessageUpdate(oldMessage, newMessage);
+  });
+
+  client.on(Events.MessageCreate, async (message) => {
+    await handleAuthorCommentCreate(message);
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {

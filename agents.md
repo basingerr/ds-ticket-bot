@@ -46,6 +46,7 @@ Important: only one bot instance should run with the production Discord token. D
 - New Trello cards created from Discord get a `[QA]` prefix in the card title.
 - Discord thread title edits update the Trello card title and add a Trello comment.
 - Discord starter message edits update the Trello card description and add a Trello comment.
+- New Discord comments from the original ticket author are copied to Trello comments; the starter message is not duplicated because it is the card description.
 - Trello card completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
 - Trello list name `Готово` alone does not archive the Discord thread.
