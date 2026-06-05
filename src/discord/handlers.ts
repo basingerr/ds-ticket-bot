@@ -144,14 +144,6 @@ async function findQaFeedbackContext(interaction: ButtonInteraction | ModalSubmi
     return null;
   }
 
-  if (interaction.user.id !== link.discordAuthorId) {
-    await interaction.reply({
-      content: "Подтвердить результат может только автор тикета.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return null;
-  }
-
   if (!isQaFeedbackStatus(link.status)) {
     await interaction.reply({
       content: `QA feedback доступен только в статусе: ${config.qaReplyAlertStatuses.join(", ")}.`,
