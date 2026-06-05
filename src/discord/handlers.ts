@@ -21,7 +21,7 @@ import { upsertStatusMessage } from "./statusMessage.js";
 import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadName } from "./ticketContent.js";
 import { applyStatusReaction } from "./statusReaction.js";
 import { logger } from "../utils/logger.js";
-import { handleSyncTicketCommand } from "./commands.js";
+import { handleSyncTicketCommand, handleTesterStatsCommand } from "./commands.js";
 
 async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   if (thread.parentId !== config.discord.forumChannelId) {
@@ -240,6 +240,11 @@ export function registerDiscordHandlers(client: Client): void {
 
     if (interaction.commandName === "sync-ticket") {
       await handleSyncTicketCommand(interaction);
+      return;
+    }
+
+    if (interaction.commandName === "tester-stats") {
+      await handleTesterStatsCommand(interaction);
     }
   });
 }

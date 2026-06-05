@@ -1,4 +1,13 @@
-import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from "discord.js";
+import {
+  ChannelType,
+  ChatInputCommandInteraction,
+  ForumChannel,
+  MessageFlags,
+  SlashCommandBuilder,
+  Snowflake,
+  ThreadChannel,
+} from "discord.js";
+import { config } from "../config.js";
 import { findByDiscordThreadId, updateStatus } from "../db/ticketLinks.js";
 import { getTrelloCardWithList } from "../trello/client.js";
 import { statusFromListName } from "../trello/statusMap.js";
@@ -10,6 +19,29 @@ import { logger } from "../utils/logger.js";
 export const syncTicketCommand = new SlashCommandBuilder()
   .setName("sync-ticket")
   .setDescription("Синхронизировать текущий Discord ticket с Trello card.");
+
+export const testerStatsCommand = new SlashCommandBuilder()
+  .setName("tester-stats")
+  .setDescription("Показать самых активных авторов тем в ticket forum.")
+  .addIntegerOption((option) =>
+    option
+      .setName("limit")
+      .setDescription("Сколько авторов показать.")
+      .setMinValue(1)
+      .setMaxValue(20),
+  )
+  .addIntegerOption((option) =>
+    option
+      .setName("max_threads")
+      .setDescription("Максимум тем для просмотра, чтобы команда не работала слишком долго.")
+      .setMinValue(50)
+      .setMaxValue(1000),
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("archived")
+      .setDescription("Включить архивные темы. По умолчанию: да."),
+  );
 
 export async function handleSyncTicketCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   const channel = interaction.channel;
@@ -58,5 +90,197 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
       content: "Не удалось синхронизировать тикет. Команда проверит вручную.",
       flags: MessageFlags.Ephemeral,
     });
+  }
+}
+
+type AuthorStats = {
+  userId: Snowflake;
+  count: number;
+};
+
+type CollectedThreads = {
+  threads: ThreadChannel[];
+  scannedActive: number;
+  scannedArchived: number;
+  hitLimit: boolean;
+};
+
+function isConfiguredForumChannel(channel: unknown): channel is ForumChannel {
+  return channel instanceof ForumChannel && channel.type === ChannelType.GuildForum;
+}
+
+function uniqueThreads(threads: ThreadChannel[]): ThreadChannel[] {
+  const seen = new Set<Snowflake>();
+  const unique: ThreadChannel[] = [];
+
+  for (const thread of threads) {
+    if (seen.has(thread.id)) {
+      continue;
+    }
+
+    seen.add(thread.id);
+    unique.push(thread);
+  }
+
+  return unique;
+}
+
+function oldestThreadDate(threads: ThreadChannel[]): Date | null {
+  const timestamps = threads
+    .map((thread) => thread.archiveTimestamp ?? thread.createdTimestamp)
+    .filter((timestamp): timestamp is number => typeof timestamp === "number");
+
+  if (timestamps.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.min(...timestamps) - 1);
+}
+
+async function collectForumThreads(forum: ForumChannel, includeArchived: boolean, maxThreads: number): Promise<CollectedThreads> {
+  const collected: ThreadChannel[] = [];
+  let scannedActive = 0;
+  let scannedArchived = 0;
+  let hitLimit = false;
+
+  const active = await forum.threads.fetchActive(false);
+  const activeThreads = [...active.threads.values()].filter((thread) => thread.parentId === forum.id) as ThreadChannel[];
+  scannedActive = activeThreads.length;
+  collected.push(...activeThreads);
+
+  if (!includeArchived || collected.length >= maxThreads) {
+    return {
+      threads: uniqueThreads(collected).slice(0, maxThreads),
+      scannedActive,
+      scannedArchived,
+      hitLimit: collected.length > maxThreads,
+    };
+  }
+
+  let before: Date | undefined;
+
+  while (collected.length < maxThreads) {
+    const archived = await forum.threads.fetchArchived(
+      {
+        type: "public",
+        limit: Math.min(100, maxThreads - collected.length),
+        before,
+      },
+      false,
+    );
+    const archivedThreads = [...archived.threads.values()].filter((thread) => thread.parentId === forum.id) as ThreadChannel[];
+
+    scannedArchived += archivedThreads.length;
+    collected.push(...archivedThreads);
+
+    if (!archived.hasMore || archivedThreads.length === 0) {
+      break;
+    }
+
+    before = oldestThreadDate(archivedThreads) ?? before;
+    if (!before) {
+      break;
+    }
+  }
+
+  hitLimit = collected.length >= maxThreads;
+
+  return {
+    threads: uniqueThreads(collected).slice(0, maxThreads),
+    scannedActive,
+    scannedArchived,
+    hitLimit,
+  };
+}
+
+function countThreadAuthors(threads: ThreadChannel[]): AuthorStats[] {
+  const counts = new Map<Snowflake, number>();
+
+  for (const thread of threads) {
+    if (!thread.ownerId) {
+      continue;
+    }
+
+    counts.set(thread.ownerId, (counts.get(thread.ownerId) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([userId, count]) => ({ userId, count }))
+    .sort((left, right) => right.count - left.count || left.userId.localeCompare(right.userId));
+}
+
+async function userLabel(interaction: ChatInputCommandInteraction, userId: Snowflake): Promise<string> {
+  try {
+    const member = await interaction.guild?.members.fetch(userId);
+    if (member) {
+      return `${member.displayName} (@${member.user.username})`;
+    }
+  } catch {
+    // Fall back to the global user object below.
+  }
+
+  try {
+    const user = await interaction.client.users.fetch(userId);
+    return `@${user.username}`;
+  } catch {
+    return `<@${userId}>`;
+  }
+}
+
+export async function handleTesterStatsCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  const limit = interaction.options.getInteger("limit") ?? 10;
+  const maxThreads = interaction.options.getInteger("max_threads") ?? 500;
+  const includeArchived = interaction.options.getBoolean("archived") ?? true;
+
+  logger.info("tester stats command executed", {
+    user_id: interaction.user.id,
+    limit,
+    max_threads: maxThreads,
+    archived: includeArchived,
+  });
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const channel = await interaction.client.channels.fetch(config.discord.forumChannelId);
+    if (!isConfiguredForumChannel(channel)) {
+      await interaction.editReply("Настроенный Discord forum channel не найден или это не forum channel.");
+      return;
+    }
+
+    const collected = await collectForumThreads(channel, includeArchived, maxThreads);
+    const stats = countThreadAuthors(collected.threads).slice(0, limit);
+
+    if (stats.length === 0) {
+      await interaction.editReply("Не нашел тем с известными авторами в настроенном forum channel.");
+      return;
+    }
+
+    const lines = await Promise.all(
+      stats.map(async (stat, index) => {
+        const label = await userLabel(interaction, stat.userId);
+        return `${index + 1}. ${label} - ${stat.count}`;
+      }),
+    );
+
+    const archiveText = includeArchived ? "активные + архивные" : "только активные";
+    const limitText = collected.hitLimit ? `\nОстановился на лимите max_threads=${maxThreads}.` : "";
+
+    await interaction.editReply(
+      [
+        `Самые активные авторы тем (${archiveText}):`,
+        "",
+        ...lines,
+        "",
+        `Просмотрено тем: ${collected.threads.length} (active: ${collected.scannedActive}, archived: ${collected.scannedArchived}).${limitText}`,
+      ].join("\n"),
+    );
+  } catch (error) {
+    logger.error("error", {
+      action: "tester_stats_command",
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    await interaction.editReply("Не удалось собрать статистику по forum channel. Проверьте права бота на просмотр тредов.");
   }
 }

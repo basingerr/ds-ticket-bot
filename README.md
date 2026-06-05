@@ -6,6 +6,7 @@ Small bridge bot:
 - Trello card list move updates a single Discord status embed in the thread.
 - SQLite stores `discordThreadId <-> trelloCardId`.
 - `/sync-ticket` manually reconciles status from Trello.
+- `/tester-stats` shows the most active Discord forum thread authors.
 - Trello webhook updates are debounced to avoid status spam during rapid card moves.
 - Discord title/description edits update the linked Trello card.
 - Trello completion checkbox archives or reopens the Discord thread.
@@ -77,6 +78,13 @@ Repair Trello descriptions from saved Discord ticket links:
 npm run repair:descriptions
 npm run repair:descriptions -- --apply
 npm run repair:descriptions -- --all --apply
+```
+
+Discord commands:
+
+```text
+/sync-ticket
+/tester-stats limit:10 max_threads:500 archived:true
 ```
 
 Health endpoint:
