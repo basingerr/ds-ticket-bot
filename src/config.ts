@@ -73,4 +73,8 @@ export const config = {
     "1443903847046053949",
     "1509621366054326352",
   ]),
+  watchdogAlertChannelId: optional("WATCHDOG_ALERT_CHANNEL_ID", "1374256075414442064"),
+  watchdogIntervalMs: optionalNumber("WATCHDOG_INTERVAL_MS", 300000),
+  watchdogRecoveryCooldownMs: optionalNumber("WATCHDOG_RECOVERY_COOLDOWN_MS", 1800000),
+  readonlyAlertAfterMs: optionalNumber("READONLY_ALERT_AFTER_MS", 1800000),
 };

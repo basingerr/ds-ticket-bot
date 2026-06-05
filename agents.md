@@ -124,6 +124,10 @@ BOT_DEFAULT_MODE=active
 BOT_ADMIN_USER_IDS=
 BOT_ADMIN_ROLE_IDS=
 TESTER_STATS_ROLE_IDS=1253347054000803922,1443903847046053949,1509621366054326352
+WATCHDOG_ALERT_CHANNEL_ID=1374256075414442064
+WATCHDOG_INTERVAL_MS=300000
+WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
+READONLY_ALERT_AFTER_MS=1800000
 ```
 
 Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
@@ -131,6 +135,8 @@ Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
 Emergency switch: `/bot-mode` can show/set `active` or `readonly`. Access is limited by `BOT_ADMIN_USER_IDS` or `BOT_ADMIN_ROLE_IDS`. In `readonly`, the bot keeps health, `/bot-mode`, and `/bhealth`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
 
 `/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
+
+Watchdog runs periodically and posts degraded/recovered health alerts to `WATCHDOG_ALERT_CHANNEL_ID`. The bot must be able to view/send messages in that channel. It should not spam identical failures; it only posts when the failure signature changes or recovers. It alerts if readonly stays enabled longer than `READONLY_ALERT_AFTER_MS`.
 
 Never commit `.env`.
 

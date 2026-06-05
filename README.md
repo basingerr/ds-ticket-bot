@@ -54,6 +54,10 @@ BOT_DEFAULT_MODE=active
 BOT_ADMIN_USER_IDS=
 BOT_ADMIN_ROLE_IDS=
 TESTER_STATS_ROLE_IDS=1253347054000803922,1443903847046053949,1509621366054326352
+WATCHDOG_ALERT_CHANNEL_ID=1374256075414442064
+WATCHDOG_INTERVAL_MS=300000
+WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
+READONLY_ALERT_AFTER_MS=1800000
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.
@@ -140,6 +144,7 @@ Only users listed in `BOT_ADMIN_USER_IDS` or members with roles listed in `BOT_A
 In `readonly` mode the bot keeps `/health` and `/bot-mode`, but ignores Discord ticket writes, Trello webhook writes, and reconciliation repairs.
 `/bhealth` uses the same admin access and privately checks Discord, Trello, SQLite, webhook, mode, public URL, and reconciliation.
 `/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
+Watchdog runs periodically and posts degraded/recovered health alerts to `WATCHDOG_ALERT_CHANNEL_ID`. It also alerts if readonly stays enabled longer than `READONLY_ALERT_AFTER_MS`.
 
 Do not run a local `npm run dev` with the same Discord token while production is active. Two live bot instances can both receive `threadCreate` events.
 

@@ -6,6 +6,7 @@ export type BotMode = "active" | "readonly";
 
 type AppSettingRow = {
   value: string;
+  updated_at: string;
 };
 
 const BOT_MODE_KEY = "bot_mode";
@@ -15,12 +16,19 @@ function isBotMode(value: string): value is BotMode {
 }
 
 export function getBotMode(): BotMode {
-  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(BOT_MODE_KEY) as AppSettingRow | undefined;
+  return getBotModeState().mode;
+}
+
+export function getBotModeState(): { mode: BotMode; updatedAt: string | null } {
+  const row = db.prepare("SELECT value, updated_at FROM app_settings WHERE key = ?").get(BOT_MODE_KEY) as AppSettingRow | undefined;
   if (!row) {
-    return config.botDefaultMode;
+    return { mode: config.botDefaultMode, updatedAt: null };
   }
 
-  return isBotMode(row.value) ? row.value : config.botDefaultMode;
+  return {
+    mode: isBotMode(row.value) ? row.value : config.botDefaultMode,
+    updatedAt: row.updated_at,
+  };
 }
 
 export function setBotMode(mode: BotMode): void {

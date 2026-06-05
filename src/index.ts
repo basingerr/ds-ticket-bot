@@ -6,6 +6,7 @@ import { registerDiscordHandlers } from "./discord/handlers.js";
 import { startReconciliationJob } from "./reconcile.js";
 import { createTrelloWebhookRouter } from "./trello/webhook.js";
 import { logger } from "./utils/logger.js";
+import { startWatchdog } from "./watchdog.js";
 
 initDatabase();
 
@@ -29,6 +30,7 @@ const server = app.listen(config.port, () => {
 
 await discordClient.login(config.discord.token);
 const reconciliationTimer = startReconciliationJob(discordClient);
+const watchdogTimer = startWatchdog(discordClient);
 
 let isShuttingDown = false;
 
@@ -42,6 +44,10 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   if (reconciliationTimer) {
     clearInterval(reconciliationTimer);
+  }
+
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
   }
 
   server.close((error) => {

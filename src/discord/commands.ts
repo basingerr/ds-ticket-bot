@@ -11,9 +11,9 @@ import {
 } from "discord.js";
 import { getBotMode, setBotMode, type BotMode } from "../botMode.js";
 import { config } from "../config.js";
-import { checkDatabaseWritable } from "../db/database.js";
 import { findByDiscordThreadId, updateStatus } from "../db/ticketLinks.js";
-import { getTrelloBoard, getTrelloCardWithList, listTrelloWebhooks } from "../trello/client.js";
+import { healthCheckLine, runHealthChecks } from "../healthChecks.js";
+import { getTrelloCardWithList } from "../trello/client.js";
 import { statusFromListName } from "../trello/statusMap.js";
 import { applyStatusTag } from "./threadTags.js";
 import { upsertStatusMessage } from "./statusMessage.js";
@@ -98,88 +98,6 @@ function botModeLabel(mode: BotMode): string {
   return mode === "active" ? "active - бот работает" : "readonly - бот ничего не создает и не синхронизирует";
 }
 
-type HealthCheck = {
-  name: string;
-  ok: boolean;
-  details: string;
-};
-
-function okCheck(name: string, details: string): HealthCheck {
-  return { name, ok: true, details };
-}
-
-function failCheck(name: string, error: unknown): HealthCheck {
-  return {
-    name,
-    ok: false,
-    details: error instanceof Error ? error.message : String(error),
-  };
-}
-
-function checkLine(check: HealthCheck): string {
-  return `${check.ok ? "OK" : "FAIL"} **${check.name}** - ${check.details}`;
-}
-
-async function runHealthChecks(interaction: ChatInputCommandInteraction): Promise<HealthCheck[]> {
-  const checks: HealthCheck[] = [];
-
-  checks.push(okCheck("Mode", botModeLabel(getBotMode())));
-  checks.push(okCheck("Discord client", `ready=${interaction.client.isReady()}, ping=${interaction.client.ws.ping}ms`));
-
-  try {
-    const guild = await interaction.client.guilds.fetch(config.discord.guildId);
-    checks.push(okCheck("Discord guild", guild.name));
-  } catch (error) {
-    checks.push(failCheck("Discord guild", error));
-  }
-
-  try {
-    const channel = await interaction.client.channels.fetch(config.discord.forumChannelId);
-    checks.push(
-      isConfiguredForumChannel(channel)
-        ? okCheck("Discord forum", `${channel.name} (${channel.id})`)
-        : { name: "Discord forum", ok: false, details: "configured channel is not a forum channel" },
-    );
-  } catch (error) {
-    checks.push(failCheck("Discord forum", error));
-  }
-
-  try {
-    checkDatabaseWritable();
-    checks.push(okCheck("SQLite", "read/write ok"));
-  } catch (error) {
-    checks.push(failCheck("SQLite", error));
-  }
-
-  try {
-    const board = await getTrelloBoard();
-    checks.push(okCheck("Trello board", `${board.name}${board.closed ? " (closed)" : ""}`));
-  } catch (error) {
-    checks.push(failCheck("Trello board", error));
-  }
-
-  try {
-    const expectedCallback = `${config.publicBaseUrl}/webhooks/trello`;
-    const webhooks = await listTrelloWebhooks();
-    const matching = webhooks.filter((webhook) => webhook.callbackUrl === expectedCallback);
-
-    if (matching.length === 0) {
-      checks.push({ name: "Trello webhook", ok: false, details: `no webhook for ${expectedCallback}` });
-    } else {
-      const activeCount = matching.filter((webhook) => webhook.active).length;
-      const maxFailures = Math.max(...matching.map((webhook) => webhook.consecutiveFailures ?? 0));
-      checks.push(okCheck("Trello webhook", `matching=${matching.length}, active=${activeCount}, failures=${maxFailures}`));
-    }
-  } catch (error) {
-    checks.push(failCheck("Trello webhook", error));
-  }
-
-  checks.push(okCheck("Public URL", config.publicBaseUrl.startsWith("https://") ? config.publicBaseUrl : `${config.publicBaseUrl} (not https)`));
-  checks.push(okCheck("Reconciliation", config.reconcileIntervalMs === 0 ? "disabled" : `${config.reconcileIntervalMs}ms`));
-
-  return checks;
-}
-
 export async function handleBotModeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   logger.info("bot mode command executed", {
     user_id: interaction.user.id,
@@ -225,12 +143,12 @@ export async function handleBotHealthCommand(interaction: ChatInputCommandIntera
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const checks = await runHealthChecks(interaction);
+  const checks = await runHealthChecks(interaction.client);
   const failed = checks.filter((check) => !check.ok).length;
   const embed = new EmbedBuilder()
     .setColor(failed === 0 ? 0x22c55e : 0xef4444)
     .setTitle("Bot health")
-    .setDescription(checks.map(checkLine).join("\n"))
+    .setDescription(checks.map(healthCheckLine).join("\n"))
     .setTimestamp();
 
   await interaction.editReply({ embeds: [embed] });
