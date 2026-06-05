@@ -12,6 +12,7 @@ Small bridge bot:
 - Trello completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
 - Moving a card to `Готово` only changes status; it does not archive the Discord thread by itself.
+- Final/exception states update the same Discord status embed instead of posting separate close messages.
 - Trello descriptions can be repaired from Discord with a dry-run tool.
 - Bot-owned starter message reactions reflect the current ticket status.
 - A periodic reconciliation job repairs missed Trello/Discord status changes.

@@ -49,6 +49,7 @@ Important: only one bot instance should run with the production Discord token. D
 - Trello card completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
 - Trello list name `Готово` alone does not archive the Discord thread.
+- Final/exception states update the single Discord status embed; do not add separate close messages.
 - Bot-owned starter message reactions reflect real board statuses: `🕓`, `🔧`, `🔁`, `✅`, fallback `⚠️`.
 - Periodic reconciliation job checks SQLite links against Trello and repairs missed Discord status/archive changes.
 - `/bot-mode` provides an admin-only emergency `active`/`readonly` switch persisted in SQLite.

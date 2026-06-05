@@ -2,6 +2,11 @@ import { EmbedBuilder, ThreadChannel } from "discord.js";
 import { updateDiscordStatusMessageId, type TicketLink } from "../db/ticketLinks.js";
 import { logger } from "../utils/logger.js";
 
+export type StatusMessageState =
+  | { kind: "status"; status: string }
+  | { kind: "completed"; status?: string }
+  | { kind: "manual_close"; reason: string; status?: string };
+
 function colorForStatus(status: string): number {
   const normalized = status.toLowerCase();
 
@@ -53,23 +58,45 @@ function noteForStatus(status: string): string | null {
   return null;
 }
 
-function buildStatusEmbed(status: string): EmbedBuilder {
+function buildStatusEmbed(status: string, options?: { title?: string; description?: string; color?: number; noteName?: string; note?: string }): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setColor(colorForStatus(status))
-    .setTitle("Статус тикета")
-    .setDescription(`**${status}**`)
+    .setColor(options?.color ?? colorForStatus(status))
+    .setTitle(options?.title ?? "Статус тикета")
+    .setDescription(options?.description ?? `**${status}**`)
     .setTimestamp();
 
-  const note = noteForStatus(status);
+  const note = options?.note ?? noteForStatus(status);
   if (note) {
-    embed.addFields({ name: "Порядок действий", value: note });
+    embed.addFields({ name: options?.noteName ?? "Порядок действий", value: note });
   }
 
   return embed;
 }
 
-export async function upsertStatusMessage(thread: ThreadChannel, link: TicketLink, status: string): Promise<string> {
-  const embed = buildStatusEmbed(status);
+function buildStatusMessageStateEmbed(state: StatusMessageState): EmbedBuilder {
+  if (state.kind === "completed") {
+    return buildStatusEmbed(state.status ?? "Завершен", {
+      color: 0x22c55e,
+      description: "**✅ Завершен**",
+      noteName: "Причина",
+      note: "Внутренняя карточка отмечена завершенной.",
+    });
+  }
+
+  if (state.kind === "manual_close") {
+    return buildStatusEmbed(state.status ?? "Закрыт вручную", {
+      color: 0xef4444,
+      description: "**⚠️ Закрыт вручную**",
+      noteName: "Причина",
+      note: state.reason,
+    });
+  }
+
+  return buildStatusEmbed(state.status);
+}
+
+async function upsertStatusMessageState(thread: ThreadChannel, link: TicketLink, state: StatusMessageState): Promise<string> {
+  const embed = buildStatusMessageStateEmbed(state);
 
   if (link.discordStatusMessageId) {
     try {
@@ -88,4 +115,21 @@ export async function upsertStatusMessage(thread: ThreadChannel, link: TicketLin
   const message = await thread.send({ embeds: [embed] });
   updateDiscordStatusMessageId(link.id, message.id);
   return message.id;
+}
+
+export async function upsertStatusMessage(thread: ThreadChannel, link: TicketLink, status: string): Promise<string> {
+  return upsertStatusMessageState(thread, link, { kind: "status", status });
+}
+
+export async function upsertCompletedStatusMessage(thread: ThreadChannel, link: TicketLink, status?: string): Promise<string> {
+  return upsertStatusMessageState(thread, link, { kind: "completed", status });
+}
+
+export async function upsertManualCloseStatusMessage(
+  thread: ThreadChannel,
+  link: TicketLink,
+  reason: string,
+  status?: string,
+): Promise<string> {
+  return upsertStatusMessageState(thread, link, { kind: "manual_close", reason, status });
 }

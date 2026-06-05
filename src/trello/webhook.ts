@@ -6,7 +6,7 @@ import { findByTrelloCardId, updateStatus } from "../db/ticketLinks.js";
 import { getTrelloCardWithList } from "./client.js";
 import { statusFromListName } from "./statusMap.js";
 import { applyStatusTag } from "../discord/threadTags.js";
-import { upsertStatusMessage } from "../discord/statusMessage.js";
+import { upsertCompletedStatusMessage, upsertManualCloseStatusMessage, upsertStatusMessage } from "../discord/statusMessage.js";
 import { applyStatusReaction } from "../discord/statusReaction.js";
 import { logger } from "../utils/logger.js";
 
@@ -67,14 +67,16 @@ async function updateDiscordThread(client: Client, trelloCardId: string, status:
   await applyStatusReaction(channel, status);
 }
 
-async function notifyAndArchiveDiscordThread(input: {
+async function setDiscordThreadArchiveState(input: {
   client: Client;
   trelloCardId: string;
   archived: boolean;
-  notice?: string;
+  state?: "completed" | "manual_close";
+  manualCloseReason?: string;
+  status?: string;
   reason: string;
 }): Promise<void> {
-  const { client, trelloCardId, archived, notice, reason } = input;
+  const { client, trelloCardId, archived, state, manualCloseReason, status, reason } = input;
   const link = findByTrelloCardId(trelloCardId);
   if (!link) {
     logger.info("unlinked trello card", { trello_card_id: trelloCardId });
@@ -86,8 +88,14 @@ async function notifyAndArchiveDiscordThread(input: {
     throw new Error("Discord thread not found");
   }
 
-  if (archived && notice && !channel.archived) {
-    await channel.send(notice);
+  if (state === "completed") {
+    await upsertCompletedStatusMessage(channel, link, status);
+    await applyStatusReaction(channel, "Готово");
+  }
+
+  if (state === "manual_close") {
+    await upsertManualCloseStatusMessage(channel, link, manualCloseReason ?? "Команда проверит вручную.", status);
+    await applyStatusReaction(channel, "manual_close");
   }
 
   if (channel.archived === archived) {
@@ -117,6 +125,7 @@ async function syncTrelloCardCurrentStatus(client: Client, trelloCardId: string)
 
 async function handleTrelloClosedState(client: Client, trelloCardId: string): Promise<boolean> {
   const card = await getTrelloCardWithList(trelloCardId);
+  const status = statusFromListName(card.listName);
   const isComplete = card.dueComplete;
   const isArchivedInTrello = card.closed;
 
@@ -129,28 +138,31 @@ async function handleTrelloClosedState(client: Client, trelloCardId: string): Pr
   });
 
   if (isComplete) {
-    await notifyAndArchiveDiscordThread({
+    await setDiscordThreadArchiveState({
       client,
       trelloCardId,
       archived: true,
-      notice: "Тикет закрыт: внутренняя карточка отмечена завершенной.",
+      state: "completed",
+      status,
       reason: "Trello ticket completed",
     });
     return true;
   }
 
   if (isArchivedInTrello) {
-    await notifyAndArchiveDiscordThread({
+    await setDiscordThreadArchiveState({
       client,
       trelloCardId,
       archived: true,
-      notice: "Тикет закрыт: внутренняя Trello-карточка архивирована.",
+      state: "manual_close",
+      manualCloseReason: "Внутренняя Trello-карточка архивирована. Команда проверит вручную.",
+      status,
       reason: "Trello card archived",
     });
     return true;
   }
 
-  await notifyAndArchiveDiscordThread({
+  await setDiscordThreadArchiveState({
     client,
     trelloCardId,
     archived: false,
@@ -160,11 +172,12 @@ async function handleTrelloClosedState(client: Client, trelloCardId: string): Pr
 }
 
 async function handleTrelloCardDeleted(client: Client, trelloCardId: string): Promise<void> {
-  await notifyAndArchiveDiscordThread({
+  await setDiscordThreadArchiveState({
     client,
     trelloCardId,
     archived: true,
-    notice: "Тикет закрыт: внутренняя Trello-карточка удалена или больше недоступна. Команда проверит вручную.",
+    state: "manual_close",
+    manualCloseReason: "Внутренняя Trello-карточка удалена или больше недоступна. Команда проверит вручную.",
     reason: "Trello card deleted",
   });
 }

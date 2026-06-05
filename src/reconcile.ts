@@ -3,7 +3,7 @@ import { isBotReadonly } from "./botMode.js";
 import { config } from "./config.js";
 import { listTicketLinks, updateStatus, type TicketLink } from "./db/ticketLinks.js";
 import { applyStatusReaction } from "./discord/statusReaction.js";
-import { upsertStatusMessage } from "./discord/statusMessage.js";
+import { upsertCompletedStatusMessage, upsertManualCloseStatusMessage, upsertStatusMessage } from "./discord/statusMessage.js";
 import { applyStatusTag } from "./discord/threadTags.js";
 import { getTrelloCardWithList } from "./trello/client.js";
 import { statusFromListName } from "./trello/statusMap.js";
@@ -30,7 +30,12 @@ async function closeMissingTrelloCardThread(
     return "unchanged";
   }
 
-  await channel.send("Тикет закрыт: внутренняя Trello-карточка удалена или больше недоступна. Команда проверит вручную.");
+  await upsertManualCloseStatusMessage(
+    channel,
+    link,
+    "Внутренняя Trello-карточка удалена или больше недоступна. Команда проверит вручную.",
+  );
+  await applyStatusReaction(channel, "manual_close");
   await channel.setArchived(true, "Trello reconciliation: card missing");
   return "updated";
 }
@@ -62,12 +67,20 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
   let changed = false;
 
   if (shouldBeArchived) {
-    if (!channel.archived) {
-      await channel.send(
-        card.dueComplete
-          ? "Тикет закрыт: внутренняя карточка отмечена завершенной."
-          : "Тикет закрыт: внутренняя Trello-карточка архивирована.",
+    if (card.dueComplete) {
+      await upsertCompletedStatusMessage(channel, link, status);
+      await applyStatusReaction(channel, "Готово");
+    } else {
+      await upsertManualCloseStatusMessage(
+        channel,
+        link,
+        "Внутренняя Trello-карточка архивирована. Команда проверит вручную.",
+        status,
       );
+      await applyStatusReaction(channel, "manual_close");
+    }
+
+    if (!channel.archived) {
       await channel.setArchived(true, card.dueComplete ? "Trello reconciliation: ticket completed" : "Trello reconciliation: card archived");
       changed = true;
     }
