@@ -17,7 +17,8 @@ Small bridge bot:
 - Trello descriptions can be repaired from Discord with a dry-run tool.
 - Bot-owned starter message reactions reflect the current ticket status.
 - A periodic reconciliation job repairs missed Trello/Discord status changes.
-- On QA testing statuses, the status embed shows author-only feedback buttons: fixed or needs work.
+- On QA testing statuses, the status embed shows QA feedback buttons: fixed or needs work.
+- Old Discord Forum threads can be backfilled into Trello with a dry-run tool.
 
 Production:
 
@@ -93,6 +94,14 @@ npm run repair:descriptions -- --apply
 npm run repair:descriptions -- --all --apply
 ```
 
+Backfill old Discord Forum threads into Trello and SQLite:
+
+```bash
+npm run backfill:tickets
+npm run backfill:tickets -- --apply
+npm run backfill:tickets -- --active-only --max=200
+```
+
 Discord commands:
 
 ```text
@@ -134,6 +143,14 @@ npm run repair:descriptions:prod
 npm run repair:descriptions:prod -- --apply
 ```
 
+Backfill old Discord Forum threads on production:
+
+```bash
+cd /opt/ds-ticket-bot
+npm run backfill:tickets:prod
+npm run backfill:tickets:prod -- --apply
+```
+
 Emergency readonly switch:
 
 ```text
@@ -173,6 +190,10 @@ sudo journalctl -u ds-ticket-bot -f
 npm run repair:descriptions:prod
 npm run repair:descriptions:prod -- --apply
 npm run repair:descriptions:prod -- --all --apply
+
+# Backfill old Discord forum tickets into Trello
+npm run backfill:tickets:prod
+npm run backfill:tickets:prod -- --apply
 
 # Trello webhooks
 npm run trello:webhook:prod -- list

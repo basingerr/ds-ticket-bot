@@ -11,6 +11,8 @@
     "register-commands:prod": "node dist/discord/registerCommands.js",
     "repair:descriptions": "tsx src/discord/repairTrelloDescriptions.ts",
     "repair:descriptions:prod": "node dist/discord/repairTrelloDescriptions.js",
+    "backfill:tickets": "tsx src/discord/backfillTrelloTickets.ts",
+    "backfill:tickets:prod": "node dist/discord/backfillTrelloTickets.js",
     "trello:webhook": "tsx src/trello/manageWebhook.ts",
     "trello:webhook:prod": "node dist/trello/manageWebhook.js"
   },
