@@ -1,4 +1,4 @@
-import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
+import { ChannelType, ForumChannel, Message, ThreadChannel } from "discord.js";
 import { config } from "../config.js";
 import { initDatabase } from "../db/database.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
@@ -8,6 +8,7 @@ import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadNa
 
 const apply = process.argv.includes("--apply");
 const includeArchived = !process.argv.includes("--active-only");
+const excludeCheckMarked = process.argv.includes("--without-check");
 const maxThreadsArg = process.argv.find((arg) => arg.startsWith("--max="));
 const maxThreads = maxThreadsArg ? Number(maxThreadsArg.slice("--max=".length)) : 1000;
 
@@ -123,6 +124,13 @@ async function findOrCreateTrelloCard(thread: ThreadChannel, description: string
   return { card, action: "created" };
 }
 
+function hasWhiteCheckReaction(message: Message | null): boolean {
+  return message?.reactions.cache.some((reaction) => (
+    reaction.emoji.name === "✅" ||
+    reaction.emoji.name === "white_check_mark"
+  )) ?? false;
+}
+
 initDatabase();
 
 const client = createDiscordClient();
@@ -137,6 +145,7 @@ try {
   const collected = await collectForumThreads(channel);
   let checked = 0;
   let skippedLinked = 0;
+  let skippedCheckMarked = 0;
   let plannedCreate = 0;
   let foundExistingCard = 0;
   let created = 0;
@@ -154,6 +163,11 @@ try {
       }
 
       const starterMessage = await fetchStarterMessage(thread);
+      if (excludeCheckMarked && hasWhiteCheckReaction(starterMessage)) {
+        skippedCheckMarked += 1;
+        continue;
+      }
+
       const authorId = starterMessage?.author.id ?? thread.ownerId ?? null;
       const description = await buildTrelloDescription({ authorId, thread, starterMessage });
       const result = await findOrCreateTrelloCard(thread, description);
@@ -203,6 +217,7 @@ try {
         scanned_archived: collected.scannedArchived,
         hit_limit: collected.hitLimit,
         skipped_linked: skippedLinked,
+        skipped_check_marked: skippedCheckMarked,
         planned_create: plannedCreate,
         found_existing_card: foundExistingCard,
         created,

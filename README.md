@@ -100,6 +100,7 @@ Backfill old Discord Forum threads into Trello and SQLite:
 npm run backfill:tickets
 npm run backfill:tickets -- --apply
 npm run backfill:tickets -- --active-only --max=200
+npm run backfill:tickets -- --active-only --without-check
 ```
 
 Discord commands:
@@ -149,6 +150,7 @@ Backfill old Discord Forum threads on production:
 cd /opt/ds-ticket-bot
 npm run backfill:tickets:prod
 npm run backfill:tickets:prod -- --apply
+npm run backfill:tickets:prod -- --active-only --without-check
 ```
 
 Emergency readonly switch:
@@ -194,6 +196,7 @@ npm run repair:descriptions:prod -- --all --apply
 # Backfill old Discord forum tickets into Trello
 npm run backfill:tickets:prod
 npm run backfill:tickets:prod -- --apply
+npm run backfill:tickets:prod -- --active-only --without-check
 
 # Trello webhooks
 npm run trello:webhook:prod -- list
