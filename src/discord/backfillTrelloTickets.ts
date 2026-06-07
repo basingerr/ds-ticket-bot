@@ -9,6 +9,13 @@ import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadNa
 const apply = process.argv.includes("--apply");
 const includeArchived = !process.argv.includes("--active-only");
 const excludeCheckMarked = process.argv.includes("--without-check");
+const excludeArg = process.argv.find((arg) => arg.startsWith("--exclude="));
+const excludedThreadIds = new Set(
+  (excludeArg?.slice("--exclude=".length) ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean),
+);
 const maxThreadsArg = process.argv.find((arg) => arg.startsWith("--max="));
 const maxThreads = maxThreadsArg ? Number(maxThreadsArg.slice("--max=".length)) : 1000;
 
@@ -146,6 +153,7 @@ try {
   let checked = 0;
   let skippedLinked = 0;
   let skippedCheckMarked = 0;
+  let skippedExcluded = 0;
   let plannedCreate = 0;
   let foundExistingCard = 0;
   let created = 0;
@@ -156,6 +164,11 @@ try {
     checked += 1;
 
     try {
+      if (excludedThreadIds.has(thread.id)) {
+        skippedExcluded += 1;
+        continue;
+      }
+
       const existingLink = findByDiscordThreadId(thread.id);
       if (existingLink) {
         skippedLinked += 1;
@@ -218,6 +231,7 @@ try {
         hit_limit: collected.hitLimit,
         skipped_linked: skippedLinked,
         skipped_check_marked: skippedCheckMarked,
+        skipped_excluded: skippedExcluded,
         planned_create: plannedCreate,
         found_existing_card: foundExistingCard,
         created,
