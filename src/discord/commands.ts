@@ -22,11 +22,13 @@ import { getRecentLogs, logger, type LogEntry, type LogLevel } from "../utils/lo
 
 export const syncTicketCommand = new SlashCommandBuilder()
   .setName("sync-ticket")
-  .setDescription("Синхронизировать текущий Discord ticket с Trello card.");
+  .setDescription("Синхронизировать текущий Discord ticket с Trello card.")
+  .setDefaultMemberPermissions(null);
 
 export const testerStatsCommand = new SlashCommandBuilder()
   .setName("tester-stats")
   .setDescription("Показать самых активных авторов тем в ticket forum.")
+  .setDefaultMemberPermissions(null)
   .addIntegerOption((option) =>
     option
       .setName("limit")
@@ -50,6 +52,7 @@ export const testerStatsCommand = new SlashCommandBuilder()
 export const botModeCommand = new SlashCommandBuilder()
   .setName("bot-mode")
   .setDescription("Показать или переключить аварийный режим бота.")
+  .setDefaultMemberPermissions(null)
   .addStringOption((option) =>
     option
       .setName("mode")
@@ -62,11 +65,13 @@ export const botModeCommand = new SlashCommandBuilder()
 
 export const botHealthCommand = new SlashCommandBuilder()
   .setName("bhealth")
-  .setDescription("Проверить здоровье Discord/Trello/SQLite bridge.");
+  .setDescription("Проверить здоровье Discord/Trello/SQLite bridge.")
+  .setDefaultMemberPermissions(null);
 
 export const botLogsCommand = new SlashCommandBuilder()
   .setName("blogs")
   .setDescription("Показать последние логи текущего процесса бота.")
+  .setDefaultMemberPermissions(null)
   .addStringOption((option) =>
     option
       .setName("level")
