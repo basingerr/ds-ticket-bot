@@ -4,9 +4,13 @@ import { initDatabase } from "../db/database.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
 import { createTrelloCard, findTrelloCardByDiscordThreadId, type CreatedTrelloCard } from "../trello/client.js";
 import { createDiscordClient } from "./client.js";
+import { applyStatusReaction } from "./statusReaction.js";
+import { upsertStatusMessage } from "./statusMessage.js";
 import { buildTrelloDescription, fetchStarterMessage, trelloCardNameFromThreadName } from "./ticketContent.js";
+import { applyStatusTag } from "./threadTags.js";
 
 const apply = process.argv.includes("--apply");
+const updateDiscord = process.argv.includes("--update-discord");
 const includeArchived = !process.argv.includes("--active-only");
 const excludeCheckMarked = process.argv.includes("--without-check");
 const excludeArg = process.argv.find((arg) => arg.startsWith("--exclude="));
@@ -158,6 +162,7 @@ try {
   let foundExistingCard = 0;
   let created = 0;
   let linked = 0;
+  let discordUpdated = 0;
   let failed = 0;
 
   for (const thread of collected.threads) {
@@ -204,7 +209,7 @@ try {
       console.log(`${apply ? "LINK" : "DRY-RUN link"} ${thread.id} -> ${result.card.id} ${thread.name}`);
 
       if (apply) {
-        createTicketLink({
+        const link = createTicketLink({
           discordGuildId: config.discord.guildId,
           discordChannelId: thread.parentId ?? config.discord.forumChannelId,
           discordThreadId: thread.id,
@@ -214,6 +219,13 @@ try {
           status: "New",
         });
         linked += 1;
+
+        if (updateDiscord) {
+          await upsertStatusMessage(thread, link, "New");
+          await applyStatusTag(thread, "New");
+          await applyStatusReaction(thread, "New");
+          discordUpdated += 1;
+        }
       }
     } catch (error) {
       failed += 1;
@@ -236,6 +248,7 @@ try {
         found_existing_card: foundExistingCard,
         created,
         linked,
+        discord_updated: discordUpdated,
         failed,
       },
       null,
