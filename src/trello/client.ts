@@ -99,6 +99,18 @@ async function trelloRequest<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+function hasDiscordTicketLink(desc: string | undefined, discordThreadId: string): boolean {
+  if (!desc) {
+    return false;
+  }
+
+  const threadLink = `https://discord.com/channels/${config.discord.guildId}/${discordThreadId}`;
+  const ticketLinkPattern = new RegExp(String.raw`\*\*Ссылка:\*\*\s*${threadLink.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\s|$)`);
+  const legacyMarker = `Discord thread id: ${discordThreadId}`;
+
+  return ticketLinkPattern.test(desc) || desc.includes(legacyMarker);
+}
+
 export async function createTrelloCard(input: {
   name: string;
   desc: string;
@@ -171,12 +183,7 @@ export async function findTrelloCardByDiscordThreadId(discordThreadId: string): 
     }),
   );
 
-  const threadLink = `https://discord.com/channels/${config.discord.guildId}/${discordThreadId}`;
-  const legacyMarker = `Discord thread id: ${discordThreadId}`;
-  const card = cards.find((candidate) => (
-    candidate.desc?.includes(threadLink) ||
-    candidate.desc?.includes(legacyMarker)
-  ));
+  const card = cards.find((candidate) => hasDiscordTicketLink(candidate.desc, discordThreadId));
 
   if (!card) {
     return null;
