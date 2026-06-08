@@ -124,8 +124,8 @@ async function fetchFirstUserMessage(thread: ThreadChannel): Promise<Message | n
   }
 }
 
-export async function fetchStarterMessage(thread: ThreadChannel): Promise<Message | null> {
-  const attempts = 6;
+export async function fetchStarterMessage(thread: ThreadChannel, options?: { attempts?: number }): Promise<Message | null> {
+  const attempts = options?.attempts ?? 6;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {

@@ -125,6 +125,17 @@ function botModeLabel(mode: BotMode): string {
   return mode === "active" ? "active - бот работает" : "readonly - бот ничего не создает и не синхронизирует";
 }
 
+async function safeEditInteractionReply(interaction: ChatInputCommandInteraction, content: string, action: string): Promise<void> {
+  try {
+    await interaction.editReply(content);
+  } catch (error) {
+    logger.error("error", {
+      action,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export async function handleBotModeCommand(interaction: ChatInputCommandInteraction): Promise<void> {
   logger.info("bot mode command executed", {
     user_id: interaction.user.id,
@@ -243,20 +254,25 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
     user_id: interaction.user.id,
   });
 
-  if (!channel?.isThread()) {
-    await interaction.reply({
-      content: "Команду нужно вызвать внутри Discord thread.",
-      flags: MessageFlags.Ephemeral,
+  try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  } catch (error) {
+    logger.error("error", {
+      discord_thread_id: channel?.id,
+      action: "sync_ticket_defer_reply",
+      error: error instanceof Error ? error.message : String(error),
     });
+    return;
+  }
+
+  if (!channel?.isThread()) {
+    await safeEditInteractionReply(interaction, "Команду нужно вызвать внутри Discord thread.", "sync_ticket_not_thread_reply");
     return;
   }
 
   const link = findByDiscordThreadId(channel.id);
   if (!link) {
-    await interaction.reply({
-      content: "Связка с Trello-карточкой не найдена.",
-      flags: MessageFlags.Ephemeral,
-    });
+    await safeEditInteractionReply(interaction, "Связка с Trello-карточкой не найдена.", "sync_ticket_missing_link_reply");
     return;
   }
 
@@ -269,10 +285,7 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
     await applyStatusTag(channel, status);
     await applyStatusReaction(channel, status);
 
-    await interaction.reply({
-      content: `Тикет синхронизирован.\nТекущий статус: ${status}.`,
-      flags: MessageFlags.Ephemeral,
-    });
+    await safeEditInteractionReply(interaction, `Тикет синхронизирован.\nТекущий статус: ${status}.`, "sync_ticket_success_reply");
   } catch (error) {
     logger.error("error", {
       discord_thread_id: channel.id,
@@ -281,10 +294,7 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
       error: error instanceof Error ? error.message : String(error),
     });
 
-    await interaction.reply({
-      content: "Не удалось синхронизировать тикет. Команда проверит вручную.",
-      flags: MessageFlags.Ephemeral,
-    });
+    await safeEditInteractionReply(interaction, "Не удалось синхронизировать тикет. Команда проверит вручную.", "sync_ticket_error_reply");
   }
 }
 
