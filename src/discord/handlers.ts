@@ -60,6 +60,10 @@ async function sendQaReplyAlert(input: {
     return;
   }
 
+  if (!config.qaReplyAlertChannelId) {
+    return;
+  }
+
   const channel = await input.client.channels.fetch(config.qaReplyAlertChannelId);
   if (!channel?.isSendable()) {
     logger.warn("qa reply alert channel unavailable", {

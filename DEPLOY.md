@@ -32,10 +32,16 @@ Put the project in:
 /opt/ds-ticket-bot
 ```
 
-For example, clone a private repo there or upload the project files. Then:
+For example, clone the GitHub repo there:
 
 ```bash
 cd /opt/ds-ticket-bot
+sudo git clone https://github.com/<owner>/ds-ticket-bot.git .
+```
+
+Then:
+
+```bash
 sudo chown -R ds-ticket-bot:ds-ticket-bot /opt/ds-ticket-bot
 ```
 
@@ -51,7 +57,7 @@ sudo nano .env
 Set:
 
 ```env
-PUBLIC_BASE_URL=https://tickets.basinger.cc
+PUBLIC_BASE_URL=https://your-bot-host.example
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
 ```
@@ -87,13 +93,13 @@ sudo systemctl reload nginx
 Issue TLS cert:
 
 ```bash
-sudo certbot --nginx -d tickets.basinger.cc
+sudo certbot --nginx -d your-bot-host.example
 ```
 
 Check:
 
 ```bash
-curl https://tickets.basinger.cc/health
+curl https://your-bot-host.example/health
 ```
 
 ## 6. systemd

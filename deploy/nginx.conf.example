@@ -1,6 +1,6 @@
 server {
   listen 80;
-  server_name tickets.basinger.cc;
+  server_name your-bot-host.example;
 
   location / {
     proxy_pass http://127.0.0.1:3000;

@@ -11,15 +11,15 @@ function reactionForStatus(status: string): string {
     return "🕓";
   }
 
-  if (normalized === "в работе") {
+  if (normalized === "in progress" || normalized === "в работе") {
     return "🔧";
   }
 
-  if (normalized === "тестирование / на сервере") {
+  if (normalized === "ready for retest" || normalized === "тестирование / на сервере") {
     return "🔁";
   }
 
-  if (normalized === "готово") {
+  if (normalized === "verified" || normalized === "готово") {
     return "✅";
   }
 

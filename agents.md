@@ -17,16 +17,16 @@ The project must stay small. Do not turn it into a full ticket system.
 Production host:
 
 ```text
-VDS: BStation
+VDS: your server
 OS: Ubuntu 22.04.5 LTS
 App path: /opt/ds-ticket-bot
-Public URL: https://tickets.basinger.cc
-Health: https://tickets.basinger.cc/health
-Webhook: https://tickets.basinger.cc/webhooks/trello
+Public URL: https://your-bot-host.example
+Health: https://your-bot-host.example/health
+Webhook: https://your-bot-host.example/webhooks/trello
 Process: systemd service ds-ticket-bot
 Reverse proxy: nginx
 Database: /opt/ds-ticket-bot/data/tickets.sqlite
-Repo: https://github.com/basingerr/ds-ticket-bot
+Repo: https://github.com/<owner>/ds-ticket-bot
 Branch: main
 ```
 
@@ -117,21 +117,24 @@ TRELLO_TOKEN=
 TRELLO_BOARD_ID=
 TRELLO_INBOX_LIST_ID=
 
-PUBLIC_BASE_URL=https://tickets.basinger.cc
+PUBLIC_BASE_URL=https://your-bot-host.example
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
+TRELLO_CARD_TITLE_PREFIX=[QA]
+TRELLO_LIST_STATUS_MAP_JSON=
+DISCORD_STATUS_TAG_NAMES=
 TRELLO_STATUS_DEBOUNCE_MS=2500
 RECONCILE_INTERVAL_MS=300000
 BOT_DEFAULT_MODE=active
 BOT_ADMIN_USER_IDS=
 BOT_ADMIN_ROLE_IDS=
-TESTER_STATS_ROLE_IDS=1253347054000803922,1443903847046053949,1509621366054326352
-WATCHDOG_ALERT_CHANNEL_ID=1374256075414442064
+TESTER_STATS_ROLE_IDS=
+WATCHDOG_ALERT_CHANNEL_ID=
 WATCHDOG_INTERVAL_MS=300000
 WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
 READONLY_ALERT_AFTER_MS=1800000
-QA_REPLY_ALERT_CHANNEL_ID=1374256075414442064
-QA_REPLY_ALERT_STATUSES=Тестирование / на сервере
+QA_REPLY_ALERT_CHANNEL_ID=
+QA_REPLY_ALERT_STATUSES=Ready for Retest,Тестирование / на сервере
 ```
 
 Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
@@ -179,7 +182,7 @@ sqlite3 data/tickets.sqlite "select discord_thread_id, trello_card_id, status, d
 - SQLite was initially root-owned on VDS and the service user could not write: `attempt to write a readonly database`.
 - Port `443` was occupied by old `mtproxy.service`, causing nginx to serve the wrong certificate path. MTProxy was removed.
 - GitHub private HTTPS clone does not accept account password. Use public repo, token, or deploy key.
-- Trello webhook requires a publicly reachable HTTPS URL. ngrok worked for local testing; production uses `tickets.basinger.cc`.
+- Trello webhook requires a publicly reachable HTTPS URL. ngrok can work for local testing; production should use your stable HTTPS host.
 
 ## What not to build without explicit request
 

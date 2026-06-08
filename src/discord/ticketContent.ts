@@ -11,7 +11,13 @@ function discordThreadLink(threadId: string): string {
 }
 
 export function trelloCardNameFromThreadName(threadName: string): string {
-  return threadName.startsWith("[QA] ") ? threadName : `[QA] ${threadName}`;
+  const prefix = config.trelloCardTitlePrefix.trim();
+  if (!prefix) {
+    return threadName;
+  }
+
+  const prefixWithSpace = prefix.endsWith(" ") ? prefix : `${prefix} `;
+  return threadName.startsWith(prefixWithSpace) ? threadName : `${prefixWithSpace}${threadName}`;
 }
 
 function attachmentLinks(message: Message | null): string {

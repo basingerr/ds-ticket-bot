@@ -12,7 +12,7 @@ Small bridge bot:
 - New Discord comments from the original ticket author are copied to Trello comments.
 - Trello completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
-- Moving a card to `Готово` only changes status; it does not archive the Discord thread by itself.
+- Moving a card to a final list only changes status; it does not archive the Discord thread by itself.
 - Final/exception states update the same Discord status embed instead of posting separate close messages.
 - Trello descriptions can be repaired from Discord with a dry-run tool.
 - Bot-owned starter message reactions reflect the current ticket status.
@@ -20,11 +20,15 @@ Small bridge bot:
 - On QA testing statuses, the status embed shows QA feedback buttons: fixed or needs work.
 - Old Discord Forum threads can be backfilled into Trello with a dry-run tool.
 
-Production:
+The bot is intentionally scoped to one Discord guild, one Discord forum channel, and one Trello board.
 
-```text
-https://tickets.basinger.cc
-```
+## Prerequisites
+
+- A Discord application with a bot token.
+- The bot invited to one guild with access to the target Forum channel.
+- Discord gateway intents for guilds, messages, message content, and reactions enabled as needed by your Discord application setup.
+- A Trello API key/token, board ID, and inbox list ID.
+- A public HTTPS URL for Trello webhooks in production.
 
 ## Local setup
 
@@ -50,21 +54,34 @@ TRELLO_INBOX_LIST_ID=
 PUBLIC_BASE_URL=
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
+TRELLO_CARD_TITLE_PREFIX=[QA]
+TRELLO_LIST_STATUS_MAP_JSON=
+DISCORD_STATUS_TAG_NAMES=
 TRELLO_STATUS_DEBOUNCE_MS=2500
 RECONCILE_INTERVAL_MS=300000
 BOT_DEFAULT_MODE=active
 BOT_ADMIN_USER_IDS=
 BOT_ADMIN_ROLE_IDS=
-TESTER_STATS_ROLE_IDS=1253347054000803922,1443903847046053949,1509621366054326352
-WATCHDOG_ALERT_CHANNEL_ID=1374256075414442064
+TESTER_STATS_ROLE_IDS=
+WATCHDOG_ALERT_CHANNEL_ID=
 WATCHDOG_INTERVAL_MS=300000
 WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
 READONLY_ALERT_AFTER_MS=1800000
-QA_REPLY_ALERT_CHANNEL_ID=1374256075414442064
-QA_REPLY_ALERT_STATUSES=Тестирование / на сервере
+QA_REPLY_ALERT_CHANNEL_ID=
+QA_REPLY_ALERT_STATUSES=Ready for Retest,Тестирование / на сервере
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.
+
+Optional board-specific configuration:
+
+```env
+TRELLO_CARD_TITLE_PREFIX=[QA]
+TRELLO_LIST_STATUS_MAP_JSON={"Inbox":"New","In Progress":"In Progress","Done":"Verified"}
+DISCORD_STATUS_TAG_NAMES=New,In Progress,Verified
+```
+
+Leave `WATCHDOG_ALERT_CHANNEL_ID`, `QA_REPLY_ALERT_CHANNEL_ID`, or `TESTER_STATS_ROLE_IDS` empty to disable those server-specific integrations.
 
 3. Register the Discord slash command:
 
@@ -101,8 +118,8 @@ npm run backfill:tickets
 npm run backfill:tickets -- --apply
 npm run backfill:tickets -- --active-only --max=200
 npm run backfill:tickets -- --active-only --without-check
-npm run backfill:tickets -- --active-only --without-check --exclude=1510934252022403172
-npm run backfill:tickets -- --active-only --without-check --exclude=1510934252022403172 --update-discord --apply
+npm run backfill:tickets -- --active-only --without-check --exclude=<discord_thread_id>
+npm run backfill:tickets -- --active-only --without-check --exclude=<discord_thread_id> --update-discord --apply
 ```
 
 Discord commands:
@@ -153,8 +170,8 @@ cd /opt/ds-ticket-bot
 npm run backfill:tickets:prod
 npm run backfill:tickets:prod -- --apply
 npm run backfill:tickets:prod -- --active-only --without-check
-npm run backfill:tickets:prod -- --active-only --without-check --exclude=1510934252022403172
-npm run backfill:tickets:prod -- --active-only --without-check --exclude=1510934252022403172 --update-discord --apply
+npm run backfill:tickets:prod -- --active-only --without-check --exclude=<discord_thread_id>
+npm run backfill:tickets:prod -- --active-only --without-check --exclude=<discord_thread_id> --update-discord --apply
 ```
 
 Emergency readonly switch:
@@ -201,8 +218,8 @@ npm run repair:descriptions:prod -- --all --apply
 npm run backfill:tickets:prod
 npm run backfill:tickets:prod -- --apply
 npm run backfill:tickets:prod -- --active-only --without-check
-npm run backfill:tickets:prod -- --active-only --without-check --exclude=1510934252022403172
-npm run backfill:tickets:prod -- --active-only --without-check --exclude=1510934252022403172 --update-discord --apply
+npm run backfill:tickets:prod -- --active-only --without-check --exclude=<discord_thread_id>
+npm run backfill:tickets:prod -- --active-only --without-check --exclude=<discord_thread_id> --update-discord --apply
 
 # Trello webhooks
 npm run trello:webhook:prod -- list

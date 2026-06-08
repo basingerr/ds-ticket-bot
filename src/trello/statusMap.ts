@@ -1,23 +1,8 @@
-export const TRELLO_LIST_TO_STATUS: Record<string, string> = {
-  Inbox: "New",
-  Accepted: "Accepted",
-  "In Progress": "In Progress",
-  "Ready for Retest": "Ready for Retest",
-  Verified: "Verified",
-  "Rejected / Duplicate": "Rejected / Duplicate",
-  "Need Info": "Need Info",
-};
+import { config } from "../config.js";
 
-export const STATUS_TAG_NAMES = [
-  "New",
-  "Accepted",
-  "In Progress",
-  "Ready for Retest",
-  "Verified",
-  "Rejected",
-  "Duplicate",
-  "Need Info",
-];
+export const TRELLO_LIST_TO_STATUS: Record<string, string> = config.trelloListStatusMap;
+
+export const STATUS_TAG_NAMES = config.discordStatusTagNames;
 
 export function statusFromListName(listName: string): string {
   return TRELLO_LIST_TO_STATUS[listName] ?? listName;
