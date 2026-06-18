@@ -26,6 +26,7 @@ Webhook: https://your-bot-host.example/webhooks/trello
 Process: systemd service ds-ticket-bot
 Reverse proxy: nginx
 Database: /opt/ds-ticket-bot/data/tickets.sqlite
+Backups: systemd timer `ds-ticket-bot-backup.timer`, files in `/opt/ds-ticket-bot/backups`
 Repo: https://github.com/<owner>/ds-ticket-bot
 Branch: main
 ```
@@ -176,10 +177,20 @@ SQLite quick check:
 sqlite3 data/tickets.sqlite "select discord_thread_id, trello_card_id, status, discord_status_message_id, created_at from ticket_links order by id desc limit 5;"
 ```
 
+SQLite backup timer:
+
+```bash
+sudo systemctl status ds-ticket-bot-backup.timer
+sudo journalctl -u ds-ticket-bot-backup.service -n 50 --no-pager
+sudo ls -lh /opt/ds-ticket-bot/backups
+sudo systemctl start ds-ticket-bot-backup.service
+```
+
 ## Things that bit us already
 
 - A local dev bot and the VDS bot running at the same time caused duplicate Trello cards.
 - SQLite was initially root-owned on VDS and the service user could not write: `attempt to write a readonly database`.
+- Do not back up live SQLite with plain `cp`; use `sqlite3 .backup`, gzip, and integrity check through `ds-ticket-bot-backup.timer`.
 - Port `443` was occupied by old `mtproxy.service`, causing nginx to serve the wrong certificate path. MTProxy was removed.
 - GitHub private HTTPS clone does not accept account password. Use public repo, token, or deploy key.
 - Trello webhook requires a publicly reachable HTTPS URL. ngrok can work for local testing; production should use your stable HTTPS host.

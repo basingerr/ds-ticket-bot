@@ -1,0 +1,11 @@
+[Unit]
+Description=Run ds-ticket-bot SQLite backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=ds-ticket-bot-backup.service
+
+[Install]
+WantedBy=timers.target

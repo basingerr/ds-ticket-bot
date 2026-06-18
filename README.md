@@ -225,6 +225,12 @@ npm run backfill:tickets:prod -- --active-only --without-check --exclude=<discor
 npm run trello:webhook:prod -- list
 npm run trello:webhook:prod -- create
 npm run trello:webhook:prod -- delete <webhook_id>
+
+# SQLite backups
+sudo systemctl status ds-ticket-bot-backup.timer
+sudo journalctl -u ds-ticket-bot-backup.service -n 50 --no-pager
+sudo ls -lh /opt/ds-ticket-bot/backups
+sudo systemctl start ds-ticket-bot-backup.service
 ```
 
 ## Deployment note

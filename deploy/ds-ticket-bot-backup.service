@@ -1,0 +1,17 @@
+[Unit]
+Description=Backup ds-ticket-bot SQLite database
+Documentation=file:/opt/ds-ticket-bot/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/backup-ds-ticket-bot.sh
+User=root
+Group=root
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/ds-ticket-bot/backups
+ReadOnlyPaths=/opt/ds-ticket-bot/data

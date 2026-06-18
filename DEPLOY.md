@@ -156,8 +156,27 @@ View logs:
 journalctl -u ds-ticket-bot -n 100 --no-pager
 ```
 
-Backup SQLite:
+SQLite backups:
+
+Use SQLite's online backup command instead of copying the live database file.
+The production backup timer stores compressed backups in `/opt/ds-ticket-bot/backups`, keeps them for 30 days, and checks integrity before saving.
+
+Install or update the backup units:
 
 ```bash
-sudo cp /opt/ds-ticket-bot/data/tickets.sqlite /opt/ds-ticket-bot/data/tickets.sqlite.backup
+sudo install -d -m 700 -o root -g root /opt/ds-ticket-bot/backups
+sudo install -m 700 deploy/backup-ds-ticket-bot.sh /usr/local/sbin/backup-ds-ticket-bot.sh
+sudo cp deploy/ds-ticket-bot-backup.service /etc/systemd/system/ds-ticket-bot-backup.service
+sudo cp deploy/ds-ticket-bot-backup.timer /etc/systemd/system/ds-ticket-bot-backup.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now ds-ticket-bot-backup.timer
+sudo systemctl start ds-ticket-bot-backup.service
+```
+
+Check backups:
+
+```bash
+sudo systemctl status ds-ticket-bot-backup.timer
+sudo journalctl -u ds-ticket-bot-backup.service -n 50 --no-pager
+sudo ls -lh /opt/ds-ticket-bot/backups
 ```
