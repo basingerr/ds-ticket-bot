@@ -55,6 +55,7 @@ PUBLIC_BASE_URL=
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
 TRELLO_CARD_TITLE_PREFIX=[QA]
+TRELLO_LIST_STATUS_MAP_BY_ID_JSON=
 TRELLO_LIST_STATUS_MAP_JSON=
 DISCORD_STATUS_TAG_NAMES=
 TRELLO_STATUS_DEBOUNCE_MS=2500
@@ -77,9 +78,12 @@ Optional board-specific configuration:
 
 ```env
 TRELLO_CARD_TITLE_PREFIX=[QA]
+TRELLO_LIST_STATUS_MAP_BY_ID_JSON={"trello_list_id_1":"New","trello_list_id_2":"In Progress","trello_list_id_3":"Verified"}
 TRELLO_LIST_STATUS_MAP_JSON={"Inbox":"New","In Progress":"In Progress","Done":"Verified"}
 DISCORD_STATUS_TAG_NAMES=New,In Progress,Verified
 ```
+
+Prefer `TRELLO_LIST_STATUS_MAP_BY_ID_JSON` for production boards, because Trello list names can be renamed without changing their IDs. `TRELLO_LIST_STATUS_MAP_JSON` is kept as a name-based fallback.
 
 Leave `WATCHDOG_ALERT_CHANNEL_ID`, `QA_REPLY_ALERT_CHANNEL_ID`, or `TESTER_STATS_ROLE_IDS` empty to disable those server-specific integrations.
 

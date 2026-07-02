@@ -4,7 +4,7 @@ import { isBotReadonly } from "../botMode.js";
 import { config } from "../config.js";
 import { findByTrelloCardId, updateStatus } from "../db/ticketLinks.js";
 import { getTrelloCardWithList } from "./client.js";
-import { statusFromListName } from "./statusMap.js";
+import { statusFromListName, statusFromTrelloList } from "./statusMap.js";
 import { applyStatusTag } from "../discord/threadTags.js";
 import { upsertCompletedStatusMessage, upsertManualCloseStatusMessage, upsertStatusMessage } from "../discord/statusMessage.js";
 import { applyStatusReaction } from "../discord/statusReaction.js";
@@ -138,7 +138,7 @@ async function setDiscordThreadArchiveState(input: {
 
 async function syncTrelloCardCurrentStatus(client: Client, trelloCardId: string): Promise<void> {
   const card = await getTrelloCardWithList(trelloCardId);
-  const status = statusFromListName(card.listName);
+  const status = statusFromTrelloList(card.idList, card.listName);
   const link = findByTrelloCardId(trelloCardId);
   if (!link) {
     logger.info("unlinked trello card", { trello_card_id: trelloCardId });
@@ -151,7 +151,7 @@ async function syncTrelloCardCurrentStatus(client: Client, trelloCardId: string)
 
 async function handleTrelloClosedState(client: Client, trelloCardId: string): Promise<boolean> {
   const card = await getTrelloCardWithList(trelloCardId);
-  const status = statusFromListName(card.listName);
+  const status = statusFromTrelloList(card.idList, card.listName);
   const isComplete = card.dueComplete;
   const isArchivedInTrello = card.closed;
 
@@ -314,6 +314,7 @@ export function createTrelloWebhookRouter(client: Client): Router {
       return;
     }
 
+    const listId = data?.listAfter?.id;
     const listName = data?.listAfter?.name;
 
     if (!trelloCardId) {
@@ -349,7 +350,7 @@ export function createTrelloWebhookRouter(client: Client): Router {
       return;
     }
 
-    const status = statusFromListName(listName);
+    const status = listId ? statusFromTrelloList(listId, listName) : statusFromListName(listName);
     const pending = pendingStatusUpdates.get(trelloCardId);
     if (status === link.status && !pending) {
       logger.info("trello card moved duplicate status ignored", {

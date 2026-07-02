@@ -86,6 +86,7 @@ export const config = {
   databaseUrl: optional("DATABASE_URL", "file:./data/tickets.sqlite"),
   port: Number(optional("PORT", "3000")),
   trelloCardTitlePrefix: optional("TRELLO_CARD_TITLE_PREFIX", "[QA]"),
+  trelloListStatusMapById: optionalJsonRecord("TRELLO_LIST_STATUS_MAP_BY_ID_JSON", {}),
   trelloListStatusMap: optionalJsonRecord("TRELLO_LIST_STATUS_MAP_JSON", {
     Inbox: "New",
     Accepted: "Accepted",

@@ -96,7 +96,7 @@ src/discord/repairTrelloDescriptions.ts Dry-run/apply repair tool for old descri
 src/discord/threadTags.ts    Best-effort forum tag updates
 src/trello/client.ts         Trello REST client and webhook utilities
 src/trello/webhook.ts        Trello webhook receiver and debounced status updates
-src/trello/statusMap.ts      Trello list name -> public status mapping
+src/trello/statusMap.ts      Trello list ID/name -> public status mapping
 src/db/database.ts           SQLite init and migrations
 src/db/ticketLinks.ts        ticket_links repository
 deploy/                      systemd and nginx examples
@@ -122,6 +122,7 @@ PUBLIC_BASE_URL=https://your-bot-host.example
 DATABASE_URL=file:./data/tickets.sqlite
 PORT=3000
 TRELLO_CARD_TITLE_PREFIX=[QA]
+TRELLO_LIST_STATUS_MAP_BY_ID_JSON=
 TRELLO_LIST_STATUS_MAP_JSON=
 DISCORD_STATUS_TAG_NAMES=
 TRELLO_STATUS_DEBOUNCE_MS=2500
@@ -145,6 +146,8 @@ Emergency switch: `/bot-mode` can show/set `active` or `readonly`. Access is lim
 `/tester-stats` is limited to members with roles listed in `TESTER_STATS_ROLE_IDS`.
 
 Watchdog runs periodically and posts degraded/recovered health alerts to `WATCHDOG_ALERT_CHANNEL_ID`. The bot must be able to view/send messages in that channel. It should not spam identical failures; it only posts when the failure signature changes or recovers. It alerts if readonly stays enabled longer than `READONLY_ALERT_AFTER_MS`.
+
+Prefer `TRELLO_LIST_STATUS_MAP_BY_ID_JSON` for production boards so Trello list renames do not change public Discord statuses. `TRELLO_LIST_STATUS_MAP_JSON` remains a name-based fallback.
 
 QA feedback alerts are posted to `QA_REPLY_ALERT_CHANNEL_ID` for statuses listed in `QA_REPLY_ALERT_STATUSES`.
 

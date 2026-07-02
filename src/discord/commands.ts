@@ -14,7 +14,7 @@ import { config } from "../config.js";
 import { findByDiscordThreadId, updateStatus } from "../db/ticketLinks.js";
 import { healthCheckLine, runHealthChecks } from "../healthChecks.js";
 import { getTrelloCardWithList } from "../trello/client.js";
-import { statusFromListName } from "../trello/statusMap.js";
+import { statusFromTrelloList } from "../trello/statusMap.js";
 import { applyStatusTag } from "./threadTags.js";
 import { upsertStatusMessage } from "./statusMessage.js";
 import { applyStatusReaction } from "./statusReaction.js";
@@ -278,7 +278,7 @@ export async function handleSyncTicketCommand(interaction: ChatInputCommandInter
 
   try {
     const card = await getTrelloCardWithList(link.trelloCardId);
-    const status = statusFromListName(card.listName);
+    const status = statusFromTrelloList(card.idList, card.listName);
     const updatedLink = status !== link.status ? updateStatus(link.id, status) : link;
 
     await upsertStatusMessage(channel, updatedLink, status);

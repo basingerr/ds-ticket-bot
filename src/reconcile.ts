@@ -6,7 +6,7 @@ import { applyStatusReaction } from "./discord/statusReaction.js";
 import { upsertCompletedStatusMessage, upsertManualCloseStatusMessage, upsertStatusMessage } from "./discord/statusMessage.js";
 import { applyStatusTag } from "./discord/threadTags.js";
 import { getTrelloCardWithList } from "./trello/client.js";
-import { statusFromListName } from "./trello/statusMap.js";
+import { statusFromTrelloList } from "./trello/statusMap.js";
 import { logger } from "./utils/logger.js";
 
 function isTrelloNotFoundError(error: unknown): boolean {
@@ -64,7 +64,7 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
     throw error;
   }
 
-  const status = statusFromListName(card.listName);
+  const status = statusFromTrelloList(card.idList, card.listName);
   const shouldBeArchived = card.dueComplete || card.closed;
 
   let channel;
