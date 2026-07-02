@@ -14,7 +14,7 @@ export type StatusMessageState =
 function colorForStatus(status: string): number {
   const normalized = status.toLowerCase();
 
-  if (["new", "очередь", "inbox"].includes(normalized)) {
+  if (["new", "очередь", "в очереди", "тикет получен", "inbox"].includes(normalized)) {
     return 0x8e8e93;
   }
 
@@ -26,7 +26,7 @@ function colorForStatus(status: string): number {
     return 0xf59e0b;
   }
 
-  if (["ready for retest", "тестирование / на сервере"].includes(normalized)) {
+  if (["ready for retest", "тестирование / на сервере", "на проверке"].includes(normalized)) {
     return 0x8b5cf6;
   }
 
@@ -46,7 +46,7 @@ function colorForStatus(status: string): number {
 }
 
 function noteForStatus(status: string): string | null {
-  if (status === "Ready for Retest" || status === "Тестирование / на сервере") {
+  if (status === "Ready for Retest" || status === "Тестирование / на сервере" || status === "На проверке") {
     return [
       "Фикс готов к перепроверке. Проверьте заново и нажмите кнопку ниже:",
       "- Исправлено",

@@ -69,7 +69,7 @@ WATCHDOG_INTERVAL_MS=300000
 WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
 READONLY_ALERT_AFTER_MS=1800000
 QA_REPLY_ALERT_CHANNEL_ID=
-QA_REPLY_ALERT_STATUSES=Ready for Retest,Тестирование / на сервере
+QA_REPLY_ALERT_STATUSES=Ready for Retest,Тестирование / на сервере,На проверке
 ```
 
 For local Trello webhook testing, `PUBLIC_BASE_URL` must be a public HTTPS URL that forwards to the local bot, for example an ngrok or cloudflared tunnel.

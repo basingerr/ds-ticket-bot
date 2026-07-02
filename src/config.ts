@@ -117,5 +117,5 @@ export const config = {
   watchdogRecoveryCooldownMs: optionalNumber("WATCHDOG_RECOVERY_COOLDOWN_MS", 1800000),
   readonlyAlertAfterMs: optionalNumber("READONLY_ALERT_AFTER_MS", 1800000),
   qaReplyAlertChannelId: optional("QA_REPLY_ALERT_CHANNEL_ID", optional("WATCHDOG_ALERT_CHANNEL_ID", "")),
-  qaReplyAlertStatuses: optionalCsv("QA_REPLY_ALERT_STATUSES", ["Ready for Retest", "Тестирование / на сервере"]),
+  qaReplyAlertStatuses: optionalCsv("QA_REPLY_ALERT_STATUSES", ["Ready for Retest", "Тестирование / на сервере", "На проверке"]),
 };

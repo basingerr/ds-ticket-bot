@@ -2,12 +2,16 @@ import { Message, ThreadChannel } from "discord.js";
 import { fetchStarterMessage } from "./ticketContent.js";
 import { logger } from "../utils/logger.js";
 
-const STATUS_REACTIONS = ["🕓", "🔧", "🔁", "✅", "⚠️"] as const;
+const STATUS_REACTIONS = ["📨", "🕓", "🔧", "👀", "🔁", "✅", "⚠️"] as const;
 
 function reactionForStatus(status: string): string {
   const normalized = status.toLowerCase();
 
-  if (normalized === "очередь" || normalized === "new") {
+  if (normalized === "тикет получен") {
+    return "📨";
+  }
+
+  if (normalized === "очередь" || normalized === "в очереди" || normalized === "new") {
     return "🕓";
   }
 
@@ -15,8 +19,8 @@ function reactionForStatus(status: string): string {
     return "🔧";
   }
 
-  if (normalized === "ready for retest" || normalized === "тестирование / на сервере") {
-    return "🔁";
+  if (normalized === "ready for retest" || normalized === "тестирование / на сервере" || normalized === "на проверке") {
+    return "👀";
   }
 
   if (normalized === "verified" || normalized === "готово") {
