@@ -97,6 +97,13 @@ export const config = {
     "Need Info": "Need Info",
   }),
   discordStatusTagNames: optionalCsv("DISCORD_STATUS_TAG_NAMES", [
+    "Тикет получен",
+    "В очереди",
+    "В работе",
+    "На проверке",
+    "Готово",
+    "Очередь",
+    "Тестирование / на сервере",
     "New",
     "Accepted",
     "In Progress",
