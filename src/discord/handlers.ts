@@ -22,6 +22,7 @@ import { config } from "../config.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
 import {
   addTrelloCardComment,
+  completeTrelloCard,
   createTrelloCard,
   findTrelloCardByDiscordThreadId,
   moveTrelloCardToList,
@@ -254,6 +255,7 @@ async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void
 
     await addTrelloCardComment(context.link.trelloCardId, content);
     await moveTrelloCardToList(context.link.trelloCardId, doneListId);
+    await completeTrelloCard(context.link.trelloCardId);
 
     logger.info("trello card moved to done from qa fixed feedback", {
       discord_thread_id: context.thread.id,

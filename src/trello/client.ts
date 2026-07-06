@@ -175,6 +175,18 @@ export async function moveTrelloCardToList(cardId: string, listId: string): Prom
   });
 }
 
+export async function completeTrelloCard(cardId: string): Promise<void> {
+  const body = new URLSearchParams({ dueComplete: "true" });
+
+  await trelloRequest<TrelloCardResponse>(trelloUrl(`/cards/${encodeURIComponent(cardId)}`), {
+    method: "PUT",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+}
+
 export async function addTrelloCardComment(cardId: string, text: string): Promise<void> {
   const body = new URLSearchParams({ text });
 
