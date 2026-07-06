@@ -24,6 +24,7 @@ import {
   addTrelloCardComment,
   createTrelloCard,
   findTrelloCardByDiscordThreadId,
+  moveTrelloCardToList,
   updateTrelloCard,
   type CreatedTrelloCard,
 } from "../trello/client.js";
@@ -108,6 +109,10 @@ function discordThreadUrl(thread: ThreadChannel): string {
 
 function isQaFeedbackStatus(status: string): boolean {
   return config.qaReplyAlertStatuses.includes(status);
+}
+
+function getDoneTrelloListId(): string | null {
+  return Object.entries(config.trelloListStatusMapById).find(([, status]) => status === "Готово")?.[0] ?? null;
 }
 
 async function findQaFeedbackContext(interaction: ButtonInteraction | ModalSubmitInteraction): Promise<{
@@ -242,7 +247,19 @@ async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void
   await interaction.deferUpdate();
 
   try {
+    const doneListId = getDoneTrelloListId();
+    if (!doneListId) {
+      throw new Error("Trello done list id is not configured");
+    }
+
     await addTrelloCardComment(context.link.trelloCardId, content);
+    await moveTrelloCardToList(context.link.trelloCardId, doneListId);
+
+    logger.info("trello card moved to done from qa fixed feedback", {
+      discord_thread_id: context.thread.id,
+      trello_card_id: context.link.trelloCardId,
+      trello_list_id: doneListId,
+    });
   } catch (error) {
     logger.error("error", {
       discord_thread_id: context.thread.id,
@@ -253,7 +270,7 @@ async function handleQaFixedButton(interaction: ButtonInteraction): Promise<void
 
     pendingQaFeedbackThreadIds.delete(context.thread.id);
     await interaction.followUp({
-      content: "Не удалось отправить подтверждение. Команда проверит вручную.",
+      content: "Не удалось отправить подтверждение или перенести карточку в Готово. Команда проверит вручную.",
       flags: MessageFlags.Ephemeral,
     });
     return;
