@@ -17,19 +17,22 @@ The project must stay small. Do not turn it into a full ticket system.
 Production host:
 
 ```text
-VDS: your server
+VDS: 84.32.9.246
 OS: Ubuntu 22.04.5 LTS
+Node.js: 22.x
 App path: /opt/ds-ticket-bot
-Public URL: https://your-bot-host.example
-Health: https://your-bot-host.example/health
-Webhook: https://your-bot-host.example/webhooks/trello
+Public URL: https://tickets.basinger.cc
+Health: https://tickets.basinger.cc/health
+Webhook: https://tickets.basinger.cc/webhooks/trello
 Process: systemd service ds-ticket-bot
 Reverse proxy: nginx
 Database: /opt/ds-ticket-bot/data/tickets.sqlite
 Backups: systemd timer `ds-ticket-bot-backup.timer`, files in `/opt/ds-ticket-bot/backups`
-Repo: https://github.com/<owner>/ds-ticket-bot
+Repo: https://github.com/basingerr/ds-ticket-bot
 Branch: main
 ```
+
+`/opt/ds-ticket-bot/exports/` is a server-only untracked directory. Never remove or overwrite it during an update.
 
 Important: only one bot instance should run with the production Discord token. Do not leave local `npm run dev` running while the VDS service is active, or both instances may receive Discord gateway events.
 
@@ -51,7 +54,7 @@ Important: only one bot instance should run with the production Discord token. D
 - When a copied Discord message is deleted, its Trello copy remains and receives a short audit note. Clearing or deleting the starter message must not erase an already imported Trello description.
 - Trello card completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
-- A Discord thread archived manually by a human archives its Trello card as no longer relevant. Discord auto-archive never changes Trello.
+- A Discord thread archived manually by a human may archive its Trello card as no longer relevant; Discord auto-archive never changes Trello. This requires Discord's `View Audit Log` permission, which is not currently granted to `ReBridge`; until granted, the bot intentionally leaves Trello unchanged.
 - Trello list name `Готово` alone does not archive the Discord thread.
 - Final/exception states update the single Discord status embed; do not add separate close messages.
 - Bot-owned starter message reactions reflect real board statuses: `🕓`, `🔧`, `🔁`, `✅`, fallback `⚠️`.
@@ -162,11 +165,13 @@ On VDS:
 
 ```bash
 cd /opt/ds-ticket-bot
-git pull
+sudo systemctl start ds-ticket-bot-backup.service
+git pull --ff-only origin main
 npm ci
 npm run build
 sudo systemctl restart ds-ticket-bot
 sudo journalctl -u ds-ticket-bot -n 80 --no-pager
+curl -fsS https://tickets.basinger.cc/health
 ```
 
 Webhook utilities:

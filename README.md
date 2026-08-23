@@ -10,9 +10,11 @@ Small bridge bot:
 - Trello webhook updates are debounced to avoid status spam during rapid card moves.
 - Discord title/description edits update the linked Trello card.
 - New meaningful Discord comments from any human participant are copied to Trello comments.
+- Deleting or clearing a Discord message never removes already copied Trello context; the bot adds a short audit note instead.
 - Trello completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
-- A thread archived manually by a human archives its Trello card; automatic Discord archival does not.
+- A thread archived manually by a human can archive its Trello card; automatic Discord archival does not. This needs the Discord permission `View Audit Log` for `ReBridge` and is inactive until that permission is granted.
+- If a Discord thread was deleted, Trello is not changed automatically. The link is preserved for audit, repeated reconciliation is disabled, and an active card produces one internal alert.
 - Moving a card to a final list only changes status; it does not archive the Discord thread by itself.
 - Final/exception states update the same Discord status embed instead of posting separate close messages.
 - Trello descriptions can be repaired from Discord with a dry-run tool.
@@ -28,6 +30,7 @@ The bot is intentionally scoped to one Discord guild, one Discord forum channel,
 - A Discord application with a bot token.
 - The bot invited to one guild with access to the target Forum channel.
 - Discord gateway intents for guilds, messages, message content, and reactions enabled as needed by your Discord application setup.
+- `View Audit Log` for the bot role if manual Discord-thread archival should archive the linked Trello card. Do not use Discord auto-archive as a ticket-completion signal.
 - A Trello API key/token, board ID, and inbox list ID.
 - A public HTTPS URL for Trello webhooks in production.
 
@@ -153,11 +156,13 @@ On the VDS:
 
 ```bash
 cd /opt/ds-ticket-bot
-git pull
+sudo systemctl start ds-ticket-bot-backup.service
+git pull --ff-only origin main
 npm ci
 npm run build
 sudo systemctl restart ds-ticket-bot
 sudo journalctl -u ds-ticket-bot -n 80 --no-pager
+curl -fsS https://tickets.basinger.cc/health
 ```
 
 Repair descriptions on production:

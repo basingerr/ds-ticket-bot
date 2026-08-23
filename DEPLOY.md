@@ -156,6 +156,21 @@ View logs:
 journalctl -u ds-ticket-bot -n 100 --no-pager
 ```
 
+Safe production update:
+
+```bash
+cd /opt/ds-ticket-bot
+sudo systemctl start ds-ticket-bot-backup.service
+git pull --ff-only origin main
+npm ci
+npm run build
+sudo systemctl restart ds-ticket-bot
+sudo journalctl -u ds-ticket-bot -n 80 --no-pager
+curl -fsS https://tickets.basinger.cc/health
+```
+
+Do not remove the server-only untracked `exports/` directory during updates.
+
 SQLite backups:
 
 Use SQLite's online backup command instead of copying the live database file.
