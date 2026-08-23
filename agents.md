@@ -143,6 +143,10 @@ WATCHDOG_RECOVERY_COOLDOWN_MS=1800000
 READONLY_ALERT_AFTER_MS=1800000
 QA_REPLY_ALERT_CHANNEL_ID=
 QA_REPLY_ALERT_STATUSES=Ready for Retest,Тестирование / на сервере,На проверке
+INSIGHTS_ENABLED=false
+INSIGHTS_USERNAME=
+INSIGHTS_PASSWORD=
+INSIGHTS_REPORT_PATH=./exports/ticket-review/published.json
 ```
 
 Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
@@ -242,3 +246,28 @@ Discord Forum Post -> Trello Card -> SQLite link -> Trello move webhook -> Disco
 ```
 
 Avoid features that make it a separate ticketing platform.
+
+## Developer ticket review mode
+
+The repository has a read-only, manually triggered developer review workflow. It is not a dashboard and must not become part of the live Discord/Trello synchronization path.
+
+When the user asks in Russian or English for a ticket overview, ticket review, priorities, what changed since the last analysis, recurring problems, frustration, or similar developer insight:
+
+1. Read `TICKET_REVIEW.md` completely.
+2. Run `npm run insights:export` locally, or `npm run insights:export:prod` on the VDS when the current production data is only available there.
+3. Use the newest immutable snapshot in `exports/ticket-review/`. For a delta review, compare the two newest snapshots.
+4. Analyze the evidence and answer using the report contract in `TICKET_REVIEW.md`.
+5. Keep the workflow read-only. Never move cards, add comments, change labels, archive items, or write to Discord unless the user explicitly asks for that separate action.
+
+Useful trigger phrases include:
+
+```text
+Сделай полный обзор тикетов
+Что изменилось с прошлого анализа?
+Какие проблемы сейчас самые приоритетные?
+Найди повторяющиеся проблемы
+```
+
+Snapshots and generated reports may contain internal ticket content. They belong in ignored `exports/` and `reports/ticket-review/` directories and must not be committed.
+
+The optional team-facing summary is `GET /insights`. It is a read-only HTML view backed by server-only `exports/ticket-review/published.json`. It must fail closed: disabled or missing credentials means `404`; invalid credentials means `401`. Do not expose raw snapshots through HTTP. Publishing or replacing `published.json` requires an explicit user request.
