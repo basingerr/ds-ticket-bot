@@ -163,6 +163,18 @@ export async function updateTrelloCard(input: {
   });
 }
 
+export async function archiveTrelloCard(cardId: string): Promise<void> {
+  const body = new URLSearchParams({ closed: "true" });
+
+  await trelloRequest<TrelloCardResponse>(trelloUrl(`/cards/${encodeURIComponent(cardId)}`), {
+    method: "PUT",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+}
+
 export async function moveTrelloCardToList(cardId: string, listId: string): Promise<void> {
   const body = new URLSearchParams({ idList: listId });
 

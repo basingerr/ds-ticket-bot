@@ -51,6 +51,7 @@ Important: only one bot instance should run with the production Discord token. D
 - When a copied Discord message is deleted, its Trello copy remains and receives a short audit note. Clearing or deleting the starter message must not erase an already imported Trello description.
 - Trello card completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
+- A Discord thread archived manually by a human archives its Trello card as no longer relevant. Discord auto-archive never changes Trello.
 - Trello list name `Готово` alone does not archive the Discord thread.
 - Final/exception states update the single Discord status embed; do not add separate close messages.
 - Bot-owned starter message reactions reflect real board statuses: `🕓`, `🔧`, `🔁`, `✅`, fallback `⚠️`.

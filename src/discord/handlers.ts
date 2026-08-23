@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AuditLogEvent,
   ButtonBuilder,
   ButtonStyle,
   ButtonInteraction,
@@ -28,6 +29,7 @@ import {
 } from "../db/discordMessageImports.js";
 import {
   addTrelloCardComment,
+  archiveTrelloCard,
   completeTrelloCard,
   createTrelloCard,
   findTrelloCardByDiscordThreadId,
@@ -569,8 +571,30 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
   }
 }
 
+async function wasArchivedManually(thread: ThreadChannel): Promise<boolean> {
+  try {
+    const auditLogs = await thread.guild.fetchAuditLogs({
+      type: AuditLogEvent.ThreadUpdate,
+      limit: 10,
+    });
+
+    return [...auditLogs.entries.values()].some((entry) =>
+      entry.targetId === thread.id
+      && !entry.executor?.bot
+      && Date.now() - entry.createdTimestamp < 30_000
+      && entry.changes?.some((change) => change.key === "archived" && change.new === true),
+    );
+  } catch (error) {
+    logger.warn("discord thread archive could not be verified from audit log", {
+      discord_thread_id: thread.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
 async function handleForumThreadUpdate(oldThread: ThreadChannel, newThread: ThreadChannel): Promise<void> {
-  if (newThread.parentId !== config.discord.forumChannelId || oldThread.name === newThread.name) {
+  if (newThread.parentId !== config.discord.forumChannelId) {
     return;
   }
 
@@ -581,6 +605,29 @@ async function handleForumThreadUpdate(oldThread: ThreadChannel, newThread: Thre
 
   const link = findByDiscordThreadId(newThread.id);
   if (!link) {
+    return;
+  }
+
+  if (!oldThread.archived && newThread.archived && await wasArchivedManually(newThread)) {
+    try {
+      await archiveTrelloCard(link.trelloCardId);
+      await addTrelloCardComment(link.trelloCardId, "Discord-тред архивирован вручную. Trello-карточка архивирована как неактуальная.");
+
+      logger.info("trello card archived from manual discord thread archive", {
+        discord_thread_id: newThread.id,
+        trello_card_id: link.trelloCardId,
+      });
+    } catch (error) {
+      logger.error("error", {
+        discord_thread_id: newThread.id,
+        trello_card_id: link.trelloCardId,
+        action: "archive_trello_card_from_manual_discord_thread_archive",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (oldThread.name === newThread.name) {
     return;
   }
 

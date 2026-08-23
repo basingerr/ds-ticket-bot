@@ -9,9 +9,10 @@ Small bridge bot:
 - `/tester-stats` shows the most active Discord forum thread authors.
 - Trello webhook updates are debounced to avoid status spam during rapid card moves.
 - Discord title/description edits update the linked Trello card.
-- New Discord comments from the original ticket author are copied to Trello comments.
+- New meaningful Discord comments from any human participant are copied to Trello comments.
 - Trello completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
+- A thread archived manually by a human archives its Trello card; automatic Discord archival does not.
 - Moving a card to a final list only changes status; it does not archive the Discord thread by itself.
 - Final/exception states update the same Discord status embed instead of posting separate close messages.
 - Trello descriptions can be repaired from Discord with a dry-run tool.
