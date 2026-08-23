@@ -137,6 +137,27 @@ Discord commands:
 /tester-stats limit:10 max_threads:500 archived:true
 ```
 
+Developer ticket review (read-only, no AI API required):
+
+```bash
+npm run insights:export
+```
+
+The command creates an immutable JSON snapshot under `exports/ticket-review/`. Ask Codex to "Сделай полный обзор тикетов" or "Что изменилось с прошлого анализа?"; the review rules and report format are documented in [`TICKET_REVIEW.md`](./TICKET_REVIEW.md). The exporter only reads Trello and SQLite and never changes Trello or Discord.
+
+Private developer summary page:
+
+```env
+INSIGHTS_ENABLED=true
+INSIGHTS_USERNAME=team
+INSIGHTS_PASSWORD=use-a-long-random-password
+INSIGHTS_REPORT_PATH=./exports/ticket-review/published.json
+```
+
+The page is served at `GET /insights` with HTTP Basic authentication. It reads the report file on every request, so publishing a new report does not require restarting the bot. Set `INSIGHTS_ENABLED=false` and restart the service to disable the route completely; it then returns `404`. If credentials are missing, the route also fails closed with `404`.
+
+`published.json` is server-only internal data and must remain inside the ignored `exports/` directory. See [`TICKET_REVIEW.md`](./TICKET_REVIEW.md) for its publishing workflow.
+
 Health endpoint:
 
 ```text

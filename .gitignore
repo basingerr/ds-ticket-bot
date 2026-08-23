@@ -5,3 +5,5 @@ data/
 *.log
 
 backups/
+exports/
+reports/ticket-review/

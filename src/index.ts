@@ -7,6 +7,7 @@ import { startReconciliationJob } from "./reconcile.js";
 import { createTrelloWebhookRouter } from "./trello/webhook.js";
 import { logger } from "./utils/logger.js";
 import { startWatchdog } from "./watchdog.js";
+import { createInsightsRouter } from "./insights/web.js";
 
 initDatabase();
 
@@ -19,12 +20,14 @@ app.get("/health", (_request, response) => {
   response.json({ ok: true });
 });
 
+app.use("/insights", createInsightsRouter());
 app.use("/webhooks", createTrelloWebhookRouter(discordClient));
 
 const server = app.listen(config.port, () => {
   logger.info("http server started", {
     port: config.port,
     trello_webhook_url: `${config.publicBaseUrl}/webhooks/trello`,
+    insights_enabled: config.insights.enabled,
   });
 });
 

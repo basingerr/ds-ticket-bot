@@ -69,6 +69,14 @@ function optionalBotMode(name: string, fallback: "active" | "readonly"): "active
   return value;
 }
 
+function optionalBoolean(name: string, fallback: boolean): boolean {
+  const value = optional(name, fallback ? "true" : "false").toLowerCase();
+  if (value !== "true" && value !== "false") {
+    throw new Error(`Invalid boolean env var: ${name}`);
+  }
+  return value === "true";
+}
+
 export const config = {
   discord: {
     token: required("DISCORD_TOKEN"),
@@ -125,4 +133,10 @@ export const config = {
   readonlyAlertAfterMs: optionalNumber("READONLY_ALERT_AFTER_MS", 1800000),
   qaReplyAlertChannelId: optional("QA_REPLY_ALERT_CHANNEL_ID", optional("WATCHDOG_ALERT_CHANNEL_ID", "")),
   qaReplyAlertStatuses: optionalCsv("QA_REPLY_ALERT_STATUSES", ["Ready for Retest", "Тестирование / на сервере", "На проверке"]),
+  insights: {
+    enabled: optionalBoolean("INSIGHTS_ENABLED", false),
+    username: optional("INSIGHTS_USERNAME", ""),
+    password: optional("INSIGHTS_PASSWORD", ""),
+    reportPath: optional("INSIGHTS_REPORT_PATH", "./exports/ticket-review/published.json"),
+  },
 };

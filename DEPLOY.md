@@ -171,6 +171,36 @@ curl -fsS https://tickets.basinger.cc/health
 
 Do not remove the server-only untracked `exports/` directory during updates.
 
+### Private QA insights page
+
+The existing nginx catch-all already proxies `/insights`; no extra nginx location is required.
+
+Create the server-only report directory and place the approved `published.json` there:
+
+```bash
+sudo install -d -m 750 -o ds-ticket-bot -g ds-ticket-bot /opt/ds-ticket-bot/exports/ticket-review
+sudo install -m 640 -o ds-ticket-bot -g ds-ticket-bot published.json /opt/ds-ticket-bot/exports/ticket-review/published.json
+```
+
+Enable the page in `/opt/ds-ticket-bot/.env`:
+
+```env
+INSIGHTS_ENABLED=true
+INSIGHTS_USERNAME=team
+INSIGHTS_PASSWORD=<long-random-password>
+INSIGHTS_REPORT_PATH=./exports/ticket-review/published.json
+```
+
+Restart the service, then verify that an anonymous request receives `401` and an authenticated request receives `200`:
+
+```bash
+sudo systemctl restart ds-ticket-bot
+curl -sS -o /dev/null -w '%{http_code}\n' https://tickets.basinger.cc/insights
+curl -u 'team:<long-random-password>' -sS -o /dev/null -w '%{http_code}\n' https://tickets.basinger.cc/insights
+```
+
+To disable the page completely, set `INSIGHTS_ENABLED=false` and restart the service. `/insights` and all nested paths will return `404`.
+
 SQLite backups:
 
 Use SQLite's online backup command instead of copying the live database file.
