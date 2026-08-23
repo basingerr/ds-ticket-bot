@@ -42,6 +42,15 @@ export function initDatabase(): void {
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS discord_message_imports (
+      discord_message_id TEXT PRIMARY KEY,
+      ticket_link_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      imported_at TEXT NOT NULL,
+      content_cleared_at TEXT,
+      deleted_at TEXT
+    );
   `);
 
   const columns = db.prepare("PRAGMA table_info(ticket_links)").all() as Array<{ name: string }>;
@@ -49,6 +58,18 @@ export function initDatabase(): void {
 
   if (!columnNames.has("discord_status_message_id")) {
     db.exec("ALTER TABLE ticket_links ADD COLUMN discord_status_message_id TEXT");
+  }
+
+  if (!columnNames.has("reconcile_disabled_at")) {
+    db.exec("ALTER TABLE ticket_links ADD COLUMN reconcile_disabled_at TEXT");
+  }
+
+  if (!columnNames.has("reconcile_disabled_reason")) {
+    db.exec("ALTER TABLE ticket_links ADD COLUMN reconcile_disabled_reason TEXT");
+  }
+
+  if (!columnNames.has("discord_missing_at")) {
+    db.exec("ALTER TABLE ticket_links ADD COLUMN discord_missing_at TEXT");
   }
 }
 

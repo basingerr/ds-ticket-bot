@@ -1,13 +1,14 @@
 import { Client } from "discord.js";
 import { isBotReadonly } from "./botMode.js";
 import { config } from "./config.js";
-import { listTicketLinks, updateStatus, type TicketLink } from "./db/ticketLinks.js";
+import { disableReconciliationForMissingDiscordThread, listReconciliableTicketLinks, updateStatus, type TicketLink } from "./db/ticketLinks.js";
 import { applyStatusReaction } from "./discord/statusReaction.js";
 import { upsertCompletedStatusMessage, upsertManualCloseStatusMessage, upsertStatusMessage } from "./discord/statusMessage.js";
 import { applyStatusTag } from "./discord/threadTags.js";
 import { getTrelloCardWithList } from "./trello/client.js";
 import { statusFromTrelloList } from "./trello/statusMap.js";
 import { logger } from "./utils/logger.js";
+import { sendOperationalAlert } from "./watchdog.js";
 
 function isTrelloNotFoundError(error: unknown): boolean {
   return error instanceof Error && error.message.includes("Trello API error 404");
@@ -26,9 +27,11 @@ async function closeMissingTrelloCardThread(
     channel = await client.channels.fetch(link.discordThreadId);
   } catch (error) {
     if (isDiscordUnknownChannelError(error)) {
-      logger.warn("reconcile skipped: discord thread unknown for missing trello card", {
+      const disabled = disableReconciliationForMissingDiscordThread(link.id, "discord_thread_missing_trello_card_missing");
+      logger.warn("reconciliation disabled: discord thread and trello card are missing", {
         discord_thread_id: link.discordThreadId,
         trello_card_id: link.trelloCardId,
+        disabled,
       });
       return "skipped";
     }
@@ -72,10 +75,26 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
     channel = await client.channels.fetch(link.discordThreadId);
   } catch (error) {
     if (isDiscordUnknownChannelError(error)) {
-      logger.warn("reconcile skipped: discord thread unknown", {
+      const terminal = card.dueComplete || card.closed;
+      const reason = terminal
+        ? "discord_thread_missing_terminal_trello_card"
+        : "discord_thread_missing_active_trello_card";
+      const disabled = disableReconciliationForMissingDiscordThread(link.id, reason);
+
+      logger.warn("reconciliation disabled: discord thread missing", {
         discord_thread_id: link.discordThreadId,
         trello_card_id: link.trelloCardId,
+        terminal,
+        disabled,
       });
+
+      if (disabled && !terminal) {
+        await sendOperationalAlert(client, {
+          title: "Активная Trello-карта потеряла Discord-тред",
+          description: `Связка отключена от reconciliation, чтобы не повторять запросы. Trello card id: ${link.trelloCardId}. Карточка не менялась; при необходимости её нужно вручную перепривязать к новому Discord-треду.`,
+        });
+      }
+
       return "skipped";
     }
 
@@ -142,7 +161,7 @@ export async function runReconciliation(client: Client): Promise<void> {
     return;
   }
 
-  const links = listTicketLinks();
+  const links = listReconciliableTicketLinks();
   let updated = 0;
   let unchanged = 0;
   let skipped = 0;

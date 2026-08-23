@@ -21,6 +21,12 @@ import { isBotReadonly } from "../botMode.js";
 import { config } from "../config.js";
 import { createTicketLink, findByDiscordThreadId } from "../db/ticketLinks.js";
 import {
+  findImportedDiscordMessage,
+  markImportedDiscordMessageContentCleared,
+  markImportedDiscordMessageDeleted,
+  recordImportedDiscordMessage,
+} from "../db/discordMessageImports.js";
+import {
   addTrelloCardComment,
   completeTrelloCard,
   createTrelloCard,
@@ -106,6 +112,31 @@ async function sendQaReplyAlert(input: {
 
 function discordThreadUrl(thread: ThreadChannel): string {
   return `https://discord.com/channels/${config.discord.guildId}/${thread.id}`;
+}
+
+function formatDiscordCommentForTrello(message: Message): string | null {
+  const content = message.content.trim();
+  const attachments = message.attachments.map((attachment) => `- ${attachment.url}`).join("\n");
+
+  if (!content && !attachments) {
+    return null;
+  }
+
+  const displayName = message.member?.displayName ?? message.author.globalName ?? message.author.username;
+  const username = message.author.discriminator === "0"
+    ? `@${message.author.username}`
+    : `${message.author.username}#${message.author.discriminator}`;
+  const lines = [`Комментарий из Discord от ${displayName} (${username}, ${message.author.id}):`];
+
+  if (content) {
+    lines.push(content);
+  }
+
+  if (attachments) {
+    lines.push("Вложения:", attachments);
+  }
+
+  return lines.join("\n");
 }
 
 function isQaFeedbackStatus(status: string): boolean {
@@ -512,6 +543,14 @@ async function handleForumThreadCreate(thread: ThreadChannel): Promise<void> {
       trello_card_id: card.id,
     });
 
+    if (starterMessage) {
+      recordImportedDiscordMessage({
+        discordMessageId: starterMessage.id,
+        ticketLinkId: link.id,
+        kind: "starter",
+      });
+    }
+
     await upsertStatusMessage(thread, link, "New");
     await applyStatusTag(thread, "New");
     await applyStatusReaction(thread, "New");
@@ -592,9 +631,12 @@ async function handleStarterMessageUpdate(oldMessage: Message | PartialMessage, 
     return;
   }
 
-  const starterMessage = await fetchStarterMessage(thread);
-  if (!starterMessage || starterMessage.id !== resolvedNewMessage.id) {
-    return;
+  const isThreadStarterMessage = resolvedNewMessage.id === thread.id;
+  if (!isThreadStarterMessage) {
+    const starterMessage = await fetchStarterMessage(thread);
+    if (!starterMessage || starterMessage.id !== resolvedNewMessage.id) {
+      return;
+    }
   }
 
   const oldContent = "content" in oldMessage ? oldMessage.content : null;
@@ -608,6 +650,26 @@ async function handleStarterMessageUpdate(oldMessage: Message | PartialMessage, 
   }
 
   const authorId = resolvedNewMessage.author.id ?? thread.ownerId ?? null;
+
+  if (!resolvedNewMessage.content.trim()) {
+    if (markImportedDiscordMessageContentCleared(resolvedNewMessage.id)) {
+      try {
+        await addTrelloCardComment(
+          link.trelloCardId,
+          "Автор очистил текст стартового сообщения в Discord. Сохранённое описание на Trello оставлено без изменений.",
+        );
+      } catch (error) {
+        logger.error("error", {
+          discord_thread_id: thread.id,
+          trello_card_id: link.trelloCardId,
+          action: "preserve_trello_description_after_discord_starter_clear",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return;
+  }
+
   const description = await buildTrelloDescription({ authorId, thread, starterMessage: resolvedNewMessage });
 
   try {
@@ -631,7 +693,7 @@ async function handleStarterMessageUpdate(oldMessage: Message | PartialMessage, 
   }
 }
 
-async function handleAuthorCommentCreate(message: Message): Promise<void> {
+async function handleHumanCommentCreate(message: Message): Promise<void> {
   if (!message.channel.isThread() || message.author.bot) {
     return;
   }
@@ -647,32 +709,39 @@ async function handleAuthorCommentCreate(message: Message): Promise<void> {
   }
 
   const link = findByDiscordThreadId(thread.id);
-  if (!link || message.author.id !== link.discordAuthorId) {
+  if (!link) {
     return;
   }
 
-  const starterMessage = await fetchStarterMessage(thread);
-  if (starterMessage?.id === message.id) {
+  if (message.id === thread.id || findImportedDiscordMessage(message.id)) {
     return;
   }
 
-  const content = message.content.trim();
-  if (!content) {
+  const trelloComment = formatDiscordCommentForTrello(message);
+  if (!trelloComment) {
     return;
   }
 
   try {
-    await addTrelloCardComment(link.trelloCardId, `Автор добавил коммент в Discord:\n${content}`);
-    await sendQaReplyAlert({
-      client: message.client,
-      thread,
-      discordUrl: message.url,
-      trelloCardUrl: link.trelloCardUrl,
-      status: link.status,
-      content,
+    await addTrelloCardComment(link.trelloCardId, trelloComment);
+    recordImportedDiscordMessage({
+      discordMessageId: message.id,
+      ticketLinkId: link.id,
+      kind: "comment",
     });
 
-    logger.info("trello card comment added from discord author comment", {
+    if (message.author.id === link.discordAuthorId && message.content.trim()) {
+      await sendQaReplyAlert({
+        client: message.client,
+        thread,
+        discordUrl: message.url,
+        trelloCardUrl: link.trelloCardUrl,
+        status: link.status,
+        content: message.content.trim(),
+      });
+    }
+
+    logger.info("trello card comment added from discord comment", {
       discord_thread_id: thread.id,
       discord_message_id: message.id,
       trello_card_id: link.trelloCardId,
@@ -682,7 +751,50 @@ async function handleAuthorCommentCreate(message: Message): Promise<void> {
       discord_thread_id: thread.id,
       discord_message_id: message.id,
       trello_card_id: link.trelloCardId,
-      action: "add_trello_comment_from_discord_author_comment",
+      action: "add_trello_comment_from_discord_comment",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function handleDiscordMessageDelete(message: Message | PartialMessage): Promise<void> {
+  if (!message.channel?.isThread()) {
+    return;
+  }
+
+  const thread = message.channel;
+  if (thread.parentId !== config.discord.forumChannelId || isBotReadonly()) {
+    return;
+  }
+
+  const link = findByDiscordThreadId(thread.id);
+  if (!link) {
+    return;
+  }
+
+  const imported = markImportedDiscordMessageDeleted(message.id);
+  if (!imported) {
+    return;
+  }
+
+  const text = imported.kind === "starter"
+    ? "Стартовое сообщение удалено в Discord. Сохранённое описание на Trello оставлено без изменений."
+    : "Комментарий удалён в Discord. Сохранённая копия на Trello оставлена для истории тикета.";
+
+  try {
+    await addTrelloCardComment(link.trelloCardId, text);
+    logger.info("discord source message deletion recorded in trello", {
+      discord_thread_id: thread.id,
+      discord_message_id: message.id,
+      trello_card_id: link.trelloCardId,
+      kind: imported.kind,
+    });
+  } catch (error) {
+    logger.error("error", {
+      discord_thread_id: thread.id,
+      discord_message_id: message.id,
+      trello_card_id: link.trelloCardId,
+      action: "record_discord_message_delete_in_trello",
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -722,7 +834,11 @@ export function registerDiscordHandlers(client: Client): void {
   });
 
   client.on(Events.MessageCreate, async (message) => {
-    await handleAuthorCommentCreate(message);
+    await handleHumanCommentCreate(message);
+  });
+
+  client.on(Events.MessageDelete, async (message) => {
+    await handleDiscordMessageDelete(message);
   });
 
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {

@@ -47,13 +47,15 @@ Important: only one bot instance should run with the production Discord token. D
 - New Trello cards created from Discord get a `[QA]` prefix in the card title.
 - Discord thread title edits update the Trello card title and add a Trello comment.
 - Discord starter message edits update the Trello card description and add a Trello comment.
-- New Discord comments from the original ticket author are copied to Trello comments; the starter message is not duplicated because it is the card description.
+- New meaningful comments from any human participant are copied one-way to Trello with author attribution; bot messages are ignored. The starter message is not duplicated because it is the card description.
+- When a copied Discord message is deleted, its Trello copy remains and receives a short audit note. Clearing or deleting the starter message must not erase an already imported Trello description.
 - Trello card completion checkbox archives or reopens the Discord thread.
 - Trello card archive/delete closes the Discord thread as an exceptional/manual-review case.
 - Trello list name `Готово` alone does not archive the Discord thread.
 - Final/exception states update the single Discord status embed; do not add separate close messages.
 - Bot-owned starter message reactions reflect real board statuses: `🕓`, `🔧`, `🔁`, `✅`, fallback `⚠️`.
 - Periodic reconciliation job checks SQLite links against Trello and repairs missed Discord status/archive changes.
+- If reconciliation confirms that a Discord thread is gone, it preserves the link for audit but disables repeated reconciliation for that link. Active Trello cards produce one internal alert and are never archived or changed automatically.
 - `/bot-mode` provides an admin-only emergency `active`/`readonly` switch persisted in SQLite.
 - `/bhealth` provides admin-only private diagnostics for Discord, Trello, SQLite, webhook, mode, public URL, and reconciliation.
 - `/blogs` provides admin-only private recent in-memory logs from the current bot process; it does not replace journalctl for logs before restart.

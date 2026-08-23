@@ -10,6 +10,9 @@ export type TicketLink = {
   trelloCardId: string;
   trelloCardUrl: string | null;
   discordStatusMessageId: string | null;
+  reconcileDisabledAt: string | null;
+  reconcileDisabledReason: string | null;
+  discordMissingAt: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -24,6 +27,9 @@ type TicketLinkRow = {
   trello_card_id: string;
   trello_card_url: string | null;
   discord_status_message_id: string | null;
+  reconcile_disabled_at: string | null;
+  reconcile_disabled_reason: string | null;
+  discord_missing_at: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -54,6 +60,9 @@ function mapRow(row: TicketLinkRow | undefined): TicketLink | null {
     trelloCardId: row.trello_card_id,
     trelloCardUrl: row.trello_card_url,
     discordStatusMessageId: row.discord_status_message_id,
+    reconcileDisabledAt: row.reconcile_disabled_at,
+    reconcileDisabledReason: row.reconcile_disabled_reason,
+    discordMissingAt: row.discord_missing_at,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -129,6 +138,30 @@ export function listTicketLinks(): TicketLink[] {
 
     return link;
   });
+}
+
+export function listReconciliableTicketLinks(): TicketLink[] {
+  const rows = db
+    .prepare("SELECT * FROM ticket_links WHERE reconcile_disabled_at IS NULL ORDER BY id ASC")
+    .all() as TicketLinkRow[];
+
+  return rows.map((row) => {
+    const link = mapRow(row);
+    if (!link) {
+      throw new Error("Ticket link row could not be mapped");
+    }
+    return link;
+  });
+}
+
+export function disableReconciliationForMissingDiscordThread(id: number, reason: string): boolean {
+  const result = db.prepare(`
+    UPDATE ticket_links
+    SET reconcile_disabled_at = ?, reconcile_disabled_reason = ?, discord_missing_at = ?, updated_at = ?
+    WHERE id = ? AND reconcile_disabled_at IS NULL
+  `).run(nowIso(), reason, nowIso(), nowIso(), id);
+
+  return result.changes > 0;
 }
 
 export function updateStatus(id: number, status: string): TicketLink {

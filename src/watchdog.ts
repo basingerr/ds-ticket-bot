@@ -52,6 +52,24 @@ async function sendWatchdogAlert(client: Client, embed: EmbedBuilder): Promise<v
   await channel.send({ embeds: [embed] });
 }
 
+export async function sendOperationalAlert(client: Client, input: { title: string; description: string }): Promise<void> {
+  try {
+    await sendWatchdogAlert(
+      client,
+      new EmbedBuilder()
+        .setColor(0xf59e0b)
+        .setTitle(input.title)
+        .setDescription(input.description.slice(0, 4000))
+        .setTimestamp(),
+    );
+  } catch (error) {
+    logger.error("error", {
+      action: "send_operational_alert",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function runWatchdog(client: Client): Promise<void> {
   const checks = await runHealthChecks(client);
   const failed = checks.filter((check) => !check.ok);

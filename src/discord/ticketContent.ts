@@ -124,8 +124,9 @@ async function fetchFirstUserMessage(thread: ThreadChannel): Promise<Message | n
   }
 }
 
-export async function fetchStarterMessage(thread: ThreadChannel, options?: { attempts?: number }): Promise<Message | null> {
+export async function fetchStarterMessage(thread: ThreadChannel, options?: { attempts?: number; logUnavailable?: boolean }): Promise<Message | null> {
   const attempts = options?.attempts ?? 6;
+  const logUnavailable = options?.logUnavailable ?? true;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
@@ -139,7 +140,7 @@ export async function fetchStarterMessage(thread: ThreadChannel, options?: { att
         return fallbackMessage;
       }
     } catch (error) {
-      if (attempt === attempts) {
+      if (attempt === attempts && logUnavailable) {
         logger.warn("starter message unavailable", {
           discord_thread_id: thread.id,
           action: "fetch_starter_message",

@@ -47,7 +47,7 @@ async function removeOwnStatusReactions(message: Message, keepEmoji: string): Pr
 
 export async function applyStatusReaction(thread: ThreadChannel, status: string): Promise<void> {
   try {
-    const message = await fetchStarterMessage(thread, { attempts: 1 });
+    const message = await fetchStarterMessage(thread, { attempts: 1, logUnavailable: false });
     if (!message) {
       return;
     }
