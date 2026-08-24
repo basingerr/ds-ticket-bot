@@ -271,3 +271,16 @@ Useful trigger phrases include:
 Snapshots and generated reports may contain internal ticket content. They belong in ignored `exports/` and `reports/ticket-review/` directories and must not be committed.
 
 The optional team-facing summary is `GET /insights`. It is a read-only HTML view backed by server-only `exports/ticket-review/published.json`. It must fail closed: disabled or missing credentials means `404`; invalid credentials means `401`. Do not expose raw snapshots through HTTP. Publishing or replacing `published.json` requires an explicit user request.
+
+## The Manager mode
+
+`THE_MANAGER.md` defines the project's persistent command and continuity layer. When the user asks what is happening, what to work on now, what matters most, requests a project command/brief, invokes “The Manager”, or asks the system to continue while the owner is unavailable:
+
+1. Read `THE_MANAGER.md` completely.
+2. Use the freshest relevant project sources and state material coverage gaps.
+3. Reuse `reports/the-manager/semantic-ledger.json` when present, but never treat stored memory as proof that external state is still current.
+4. Update designated ignored Manager memory when refreshing the analysis; do not create a new service, database, dashboard, or tracker workflow.
+5. Produce an actionable current brief with ordered outcomes, why now, responsible role, first step, and done condition.
+6. Preserve normal authorization boundaries. Owner absence does not authorize external writes or other materially different actions.
+
+The Manager is broader than ticket review. Ticket evidence is one input, not automatically the whole project picture.

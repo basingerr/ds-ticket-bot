@@ -158,6 +158,8 @@ The page is served at `GET /insights` with HTTP Basic authentication. It reads t
 
 `published.json` is server-only internal data and must remain inside the ignored `exports/` directory. See [`TICKET_REVIEW.md`](./TICKET_REVIEW.md) for its publishing workflow.
 
+Project command mode is documented in [`THE_MANAGER.md`](./THE_MANAGER.md). “The Manager” combines current evidence, accumulated semantic memory, and owner decision principles to answer what matters and what the team should do next on any day. Its working ledger and briefs stay in ignored `reports/the-manager/`; it does not replace Trello or add an automated management service.
+
 Health endpoint:
 
 ```text
