@@ -22,7 +22,10 @@
     "better-sqlite3": "^11.8.1",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "html2canvas": "^1.4.1",
+    "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

@@ -201,6 +201,26 @@ curl -u 'team:<long-random-password>' -sS -o /dev/null -w '%{http_code}\n' https
 
 To disable the page completely, set `INSIGHTS_ENABLED=false` and restart the service. `/insights` and all nested paths will return `404`.
 
+### Private death heatmap
+
+The heatmap is available at `https://tickets.basinger.cc/insights/deaths` under the same Basic Auth. Keep its source data and HD tiles in the ignored server-only `exports/` tree:
+
+```bash
+sudo install -d -m 750 -o ds-ticket-bot -g ds-ticket-bot /opt/ds-ticket-bot/exports/death-insights/atlas
+sudo install -m 640 -o ds-ticket-bot -g ds-ticket-bot result.json /opt/ds-ticket-bot/exports/death-insights/result.json
+sudo rsync -a --delete atlas/ /opt/ds-ticket-bot/exports/death-insights/atlas/
+sudo chown -R ds-ticket-bot:ds-ticket-bot /opt/ds-ticket-bot/exports/death-insights
+```
+
+Optional explicit paths in `/opt/ds-ticket-bot/.env`:
+
+```env
+INSIGHTS_DEATHS_DATA_PATH=./exports/death-insights/result.json
+INSIGHTS_DEATHS_TILES_PATH=./exports/death-insights/atlas
+```
+
+For a routine data refresh, replace only `result.json`. The route reads it on every request and removes player IDs before returning data to the browser; restart is not required.
+
 SQLite backups:
 
 Use SQLite's online backup command instead of copying the live database file.

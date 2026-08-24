@@ -158,6 +158,14 @@ The page is served at `GET /insights` with HTTP Basic authentication. It reads t
 
 `published.json` is server-only internal data and must remain inside the ignored `exports/` directory. See [`TICKET_REVIEW.md`](./TICKET_REVIEW.md) for its publishing workflow.
 
+Private death heatmap:
+
+```text
+GET /insights/deaths
+```
+
+The heatmap uses the same HTTP Basic authentication as `/insights`. It reads the current server-only ClickHouse result file from `INSIGHTS_DEATHS_DATA_PATH` and HD GTA map tiles from `INSIGHTS_DEATHS_TILES_PATH`. The response strips `player_id` and `killer_id`; the browser only receives cause, coordinates, timestamp, and a `killed_by_player` flag. Replace the source file manually when a new slice is needed; no bot restart is required.
+
 Project command mode is documented in [`THE_MANAGER.md`](./THE_MANAGER.md). “The Manager” combines current evidence, accumulated semantic memory, and owner decision principles to answer what matters and what the team should do next on any day. Its working ledger and briefs stay in ignored `reports/the-manager/`; it does not replace Trello or add an automated management service.
 
 Health endpoint:

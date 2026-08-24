@@ -138,5 +138,7 @@ export const config = {
     username: optional("INSIGHTS_USERNAME", ""),
     password: optional("INSIGHTS_PASSWORD", ""),
     reportPath: optional("INSIGHTS_REPORT_PATH", "./exports/ticket-review/published.json"),
+    deathsDataPath: optional("INSIGHTS_DEATHS_DATA_PATH", "./exports/death-insights/result.json"),
+    deathsTilesPath: optional("INSIGHTS_DEATHS_TILES_PATH", "./exports/death-insights/atlas"),
   },
 };

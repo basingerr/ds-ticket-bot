@@ -1,9 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { Router, type Request, type Response } from "express";
+import express, { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
 import { logger } from "../utils/logger.js";
+import { loadPublishedDeaths } from "./deathsData.js";
 
 type ReportLink = {
   label: string;
@@ -78,10 +79,12 @@ function isAuthorized(request: Request): boolean {
   }
 }
 
-function setSecurityHeaders(response: Response): void {
+function setSecurityHeaders(response: Response, allowMapAssets: boolean): void {
   response.set({
     "Cache-Control": "private, no-store, max-age=0",
-    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "Content-Security-Policy": allowMapAssets
+      ? "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+      : "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
@@ -158,13 +161,14 @@ function reportPage(report: PublishedInsightsReport): string {
     :root{--bg:#0b0b0c;--panel:#111214;--panel-2:#16181b;--text:#f3f7fb;--muted:rgba(226,235,247,.58);--line:rgba(255,255,255,.09);--accent:#9ec8ff;--critical:#ff7b7b;--warning:#f6c66c;--good:#73d6a0}
     *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 85% -10%,rgba(158,200,255,.12),transparent 28%),var(--bg);color:var(--text);font-family:Manrope,Inter,"Segoe UI Variable Display","Segoe UI",ui-sans-serif,system-ui,sans-serif;line-height:1.55}
     a{color:inherit}.wrap{width:min(1120px,calc(100% - 32px));margin:auto}.topbar{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:30px 0 22px;border-bottom:1px solid var(--line)}.brand{font-weight:800;letter-spacing:-.03em}.brand span{color:var(--accent)}.updated{font-size:13px;color:var(--muted);text-align:right}.hero{padding:72px 0 40px}.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--accent);font-weight:800}.hero h1{font-size:clamp(42px,8vw,88px);line-height:.94;letter-spacing:-.065em;margin:18px 0 22px;max-width:900px}.hero>p{font-size:clamp(17px,2.4vw,23px);max-width:760px;color:var(--muted);margin:0}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:26px 0 64px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;min-height:145px}.metric strong{display:block;font-size:40px;letter-spacing:-.05em}.metric span{display:block;font-weight:700}.metric small{display:block;color:var(--muted);margin-top:8px}.lead{position:relative;overflow:hidden;background:linear-gradient(120deg,rgba(255,123,123,.13),rgba(246,198,108,.07));border:1px solid rgba(255,123,123,.28);border-radius:24px;padding:clamp(24px,5vw,48px);margin-bottom:84px}.lead::after{content:"!";position:absolute;right:28px;top:-44px;font-weight:900;font-size:190px;color:rgba(255,255,255,.035)}.lead h2{font-size:clamp(26px,4vw,46px);line-height:1.05;letter-spacing:-.04em;max-width:760px;margin:10px 0 18px}.lead p{max-width:760px;color:var(--muted);font-size:18px;margin:0}.section{padding:0 0 84px}.section-head{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:24px}.section-head h2{font-size:clamp(28px,4vw,44px);letter-spacing:-.04em;margin:0}.section-head p{color:var(--muted);max-width:460px;margin:0}.priority-list{display:grid;gap:14px}.priority-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:clamp(20px,4vw,34px)}.priority-card header{display:grid;grid-template-columns:54px 1fr auto;gap:18px;align-items:start}.rank{font-size:13px;color:var(--accent);font-weight:900;letter-spacing:.1em;padding-top:7px}.priority-heading h3{font-size:clamp(21px,3vw,30px);letter-spacing:-.035em;line-height:1.1;margin:0 0 8px}.confidence{color:var(--muted);font-size:13px}.score{text-align:right;display:flex;align-items:baseline;gap:3px}.score strong{font-size:34px;letter-spacing:-.05em}.score span{color:var(--muted);font-size:12px}.summary{font-size:17px;max-width:840px;margin:24px 0 12px}.priority-card ul{margin:0;padding-left:20px;color:var(--muted)}.priority-card li+li{margin-top:5px}.evidence{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}.evidence a{text-decoration:none;color:var(--accent);background:rgba(158,200,255,.08);border:1px solid rgba(158,200,255,.18);padding:8px 11px;border-radius:10px;font-size:13px}.evidence a:hover{background:rgba(158,200,255,.14)}.next{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}.next span{display:block;color:var(--good);text-transform:uppercase;letter-spacing:.1em;font-size:11px;font-weight:900}.next p{margin:7px 0 0}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}.subpanel{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:clamp(22px,4vw,34px)}.subpanel h2{font-size:26px;margin:0 0 22px;letter-spacing:-.03em}.frustration{list-style:none;margin:0;padding:0}.frustration li{display:grid;grid-template-columns:38px 1fr;gap:12px;padding:14px 0;border-top:1px solid var(--line)}.frustration span{font-size:12px;color:var(--warning);font-weight:900}.frustration p{margin:0}.signals{margin:0;padding-left:20px;color:var(--muted)}.signals li+li{margin-top:12px}.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.action{display:grid;grid-template-columns:42px 1fr;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px}.action>span{color:var(--accent);font-size:12px;font-weight:900}.action h3{font-size:18px;margin:0 0 7px}.action p{color:var(--muted);margin:0}.footer{padding:32px 0 52px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;color:var(--muted);font-size:13px}.footer strong{color:var(--text)}
+    .insights-nav{display:flex;align-items:center;gap:18px}.insights-nav a{text-decoration:none;color:var(--accent);font-size:13px;font-weight:800}
     @media(max-width:780px){.hero{padding-top:52px}.metrics{grid-template-columns:repeat(2,1fr)}.two-col,.actions{grid-template-columns:1fr}.section-head{align-items:start;flex-direction:column}.priority-card header{grid-template-columns:38px 1fr}.score{grid-column:2;text-align:left}.footer{flex-direction:column}}
     @media(max-width:480px){.wrap{width:min(100% - 22px,1120px)}.topbar{padding-top:22px}.updated{max-width:170px}.metrics{grid-template-columns:1fr}.metric{min-height:auto}.priority-card{border-radius:18px}.priority-card header{gap:8px}.hero h1{font-size:44px}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header class="topbar"><div class="brand">Basinger <span>/ QA Pulse</span></div><div class="updated">Обновлено ${html(formatDate(report.generatedAt))}</div></header>
+    <header class="topbar"><div class="brand">Basinger <span>/ QA Pulse</span></div><nav class="insights-nav"><a href="/insights/deaths">Death Map</a><div class="updated">Обновлено ${html(formatDate(report.generatedAt))}</div></nav></header>
     <main>
       <section class="hero"><div class="eyebrow">Developer insights</div><h1>${html(report.title)}</h1><p>${html(report.subtitle)}</p></section>
       <section class="metrics" aria-label="Основные показатели">${metrics}</section>
@@ -217,9 +221,14 @@ async function loadPublishedReport(): Promise<PublishedInsightsReport | null> {
 
 export function createInsightsRouter(): Router {
   const router = Router();
+  const deathsUiPath = resolve(process.cwd(), "assets/insights/deaths");
+  const leafletPath = resolve(process.cwd(), "node_modules/leaflet/dist");
+  const leafletHeatPath = resolve(process.cwd(), "node_modules/leaflet.heat/dist/leaflet-heat.js");
+  const html2canvasPath = resolve(process.cwd(), "node_modules/html2canvas/dist/html2canvas.min.js");
+  const deathsTilesPath = resolve(process.cwd(), config.insights.deathsTilesPath);
 
-  router.use((_request, response, next) => {
-    setSecurityHeaders(response);
+  router.use((request, response, next) => {
+    setSecurityHeaders(response, request.path === "/deaths" || request.path.startsWith("/deaths/"));
     if (!config.insights.enabled) {
       response.sendStatus(404);
       return;
@@ -240,6 +249,46 @@ export function createInsightsRouter(): Router {
     }
     next();
   });
+
+  router.get(["/deaths", "/deaths/"], (_request, response) => {
+    response.sendFile(resolve(deathsUiPath, "index.html"));
+  });
+
+  router.get("/deaths/data", async (_request, response) => {
+    try {
+      const deaths = await loadPublishedDeaths();
+      response.set("Cache-Control", "private, no-store, max-age=0");
+      response.status(200).json({ data: deaths });
+    } catch (error) {
+      logger.warn("death insights data unavailable", {
+        path: resolve(process.cwd(), config.insights.deathsDataPath),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      response.status(503).json({ error: "death insights data unavailable" });
+    }
+  });
+
+  router.get("/deaths/tiles/:file", (request, response) => {
+    const file = request.params.file;
+    if (!/^(?:empty|[2-8]_\d+_\d+)\.jpg$/.test(file)) {
+      response.sendStatus(404);
+      return;
+    }
+    response.set("Cache-Control", "private, max-age=604800");
+    response.sendFile(resolve(deathsTilesPath, file), (error) => {
+      if (error && !response.headersSent) response.sendStatus(404);
+    });
+  });
+
+  router.use("/deaths/vendor/leaflet", express.static(leafletPath, {
+    fallthrough: false,
+    immutable: true,
+    maxAge: "365d",
+  }));
+  router.get("/deaths/vendor/leaflet-heat.js", (_request, response) => response.sendFile(leafletHeatPath));
+  router.get("/deaths/vendor/html2canvas.min.js", (_request, response) => response.sendFile(html2canvasPath));
+  router.get("/deaths/app.js", (_request, response) => response.sendFile(resolve(deathsUiPath, "app.js")));
+  router.get("/deaths/styles.css", (_request, response) => response.sendFile(resolve(deathsUiPath, "styles.css")));
 
   router.get(["/", ""], async (_request, response) => {
     const report = await loadPublishedReport();
