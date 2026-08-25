@@ -22,6 +22,22 @@ type PriorityItem = {
   next: string;
 };
 
+type DevelopmentActivityItem = {
+  title: string;
+  status: "confirmed" | "awaiting_qa" | "code_only";
+  summary: string;
+  links: ReportLink[];
+};
+
+type DevelopmentActivity = {
+  window: string;
+  title: string;
+  summary: string;
+  stats: Array<{ value: string; label: string }>;
+  items: DevelopmentActivityItem[];
+  note?: string;
+};
+
 type PublishedInsightsReport = {
   schemaVersion: 1;
   generatedAt: string;
@@ -29,6 +45,7 @@ type PublishedInsightsReport = {
   subtitle: string;
   metrics: Array<{ label: string; value: string; note?: string }>;
   lead: { eyebrow: string; title: string; body: string; tone: "critical" | "warning" | "calm" };
+  developmentActivity?: DevelopmentActivity;
   priorities: PriorityItem[];
   frustration: string[];
   processSignals: string[];
@@ -110,13 +127,46 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function reportPage(report: PublishedInsightsReport): string {
+export function renderInsightsReportPage(report: PublishedInsightsReport): string {
   const metrics = report.metrics.map((metric) => `
     <article class="metric">
       <strong>${html(metric.value)}</strong>
       <span>${html(metric.label)}</span>
       ${metric.note ? `<small>${html(metric.note)}</small>` : ""}
     </article>`).join("");
+
+  const developmentActivity = report.developmentActivity
+    ? (() => {
+      const stats = report.developmentActivity.stats.map((stat) => `
+        <div class="dev-stat"><strong>${html(stat.value)}</strong><span>${html(stat.label)}</span></div>`).join("");
+      const items = report.developmentActivity.items.map((item) => {
+        const statusLabel = item.status === "confirmed"
+          ? "Код + Trello"
+          : item.status === "awaiting_qa"
+            ? "В production · ждёт QA"
+            : "Только код";
+        const links = item.links.map((link) => {
+          const url = safeExternalUrl(link.url);
+          return url
+            ? `<a href="${html(url)}" target="_blank" rel="noreferrer">${html(link.label)} ↗</a>`
+            : "";
+        }).join("");
+        return `
+          <article class="dev-item">
+            <div class="dev-item-head"><h3>${html(item.title)}</h3><span class="dev-status ${item.status}">${html(statusLabel)}</span></div>
+            <p>${html(item.summary)}</p>
+            ${links ? `<nav class="dev-links" aria-label="Git и Trello evidence">${links}</nav>` : ""}
+          </article>`;
+      }).join("");
+      return `
+        <section class="section development">
+          <div class="section-head"><div><span class="section-kicker">Git activity</span><h2>${html(report.developmentActivity.title)}</h2></div><p>${html(report.developmentActivity.window)}</p></div>
+          <div class="development-intro"><p>${html(report.developmentActivity.summary)}</p><div class="dev-stats">${stats}</div></div>
+          <div class="dev-list">${items}</div>
+          ${report.developmentActivity.note ? `<p class="dev-note">${html(report.developmentActivity.note)}</p>` : ""}
+        </section>`;
+    })()
+    : "";
 
   const priorities = [...report.priorities]
     .sort((left, right) => left.rank - right.rank)
@@ -144,9 +194,6 @@ function reportPage(report: PublishedInsightsReport): string {
         </article>`;
     }).join("");
 
-  const frustration = report.frustration.map((item, index) => `
-    <li><span>${String(index + 1).padStart(2, "0")}</span><p>${html(item)}</p></li>`).join("");
-  const processSignals = report.processSignals.map((item) => `<li>${html(item)}</li>`).join("");
   const actions = report.actions.map((action, index) => `
     <article class="action"><span>${String(index + 1).padStart(2, "0")}</span><div><h3>${html(action.title)}</h3><p>${html(action.body)}</p></div></article>`).join("");
 
@@ -156,35 +203,43 @@ function reportPage(report: PublishedInsightsReport): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>${html(report.title)} · Basinger</title>
+  <title>THE MANAGER · Rejoin</title>
   <style>
-    :root{--bg:#0b0b0c;--panel:#111214;--panel-2:#16181b;--text:#f3f7fb;--muted:rgba(226,235,247,.58);--line:rgba(255,255,255,.09);--accent:#9ec8ff;--critical:#ff7b7b;--warning:#f6c66c;--good:#73d6a0}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 85% -10%,rgba(158,200,255,.12),transparent 28%),var(--bg);color:var(--text);font-family:Manrope,Inter,"Segoe UI Variable Display","Segoe UI",ui-sans-serif,system-ui,sans-serif;line-height:1.55}
-    a{color:inherit}.wrap{width:min(1120px,calc(100% - 32px));margin:auto}.topbar{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:30px 0 22px;border-bottom:1px solid var(--line)}.brand{font-weight:800;letter-spacing:-.03em}.brand span{color:var(--accent)}.updated{font-size:13px;color:var(--muted);text-align:right}.hero{padding:72px 0 40px}.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--accent);font-weight:800}.hero h1{font-size:clamp(42px,8vw,88px);line-height:.94;letter-spacing:-.065em;margin:18px 0 22px;max-width:900px}.hero>p{font-size:clamp(17px,2.4vw,23px);max-width:760px;color:var(--muted);margin:0}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:26px 0 64px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;min-height:145px}.metric strong{display:block;font-size:40px;letter-spacing:-.05em}.metric span{display:block;font-weight:700}.metric small{display:block;color:var(--muted);margin-top:8px}.lead{position:relative;overflow:hidden;background:linear-gradient(120deg,rgba(255,123,123,.13),rgba(246,198,108,.07));border:1px solid rgba(255,123,123,.28);border-radius:24px;padding:clamp(24px,5vw,48px);margin-bottom:84px}.lead::after{content:"!";position:absolute;right:28px;top:-44px;font-weight:900;font-size:190px;color:rgba(255,255,255,.035)}.lead h2{font-size:clamp(26px,4vw,46px);line-height:1.05;letter-spacing:-.04em;max-width:760px;margin:10px 0 18px}.lead p{max-width:760px;color:var(--muted);font-size:18px;margin:0}.section{padding:0 0 84px}.section-head{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:24px}.section-head h2{font-size:clamp(28px,4vw,44px);letter-spacing:-.04em;margin:0}.section-head p{color:var(--muted);max-width:460px;margin:0}.priority-list{display:grid;gap:14px}.priority-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:clamp(20px,4vw,34px)}.priority-card header{display:grid;grid-template-columns:54px 1fr auto;gap:18px;align-items:start}.rank{font-size:13px;color:var(--accent);font-weight:900;letter-spacing:.1em;padding-top:7px}.priority-heading h3{font-size:clamp(21px,3vw,30px);letter-spacing:-.035em;line-height:1.1;margin:0 0 8px}.confidence{color:var(--muted);font-size:13px}.score{text-align:right;display:flex;align-items:baseline;gap:3px}.score strong{font-size:34px;letter-spacing:-.05em}.score span{color:var(--muted);font-size:12px}.summary{font-size:17px;max-width:840px;margin:24px 0 12px}.priority-card ul{margin:0;padding-left:20px;color:var(--muted)}.priority-card li+li{margin-top:5px}.evidence{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}.evidence a{text-decoration:none;color:var(--accent);background:rgba(158,200,255,.08);border:1px solid rgba(158,200,255,.18);padding:8px 11px;border-radius:10px;font-size:13px}.evidence a:hover{background:rgba(158,200,255,.14)}.next{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}.next span{display:block;color:var(--good);text-transform:uppercase;letter-spacing:.1em;font-size:11px;font-weight:900}.next p{margin:7px 0 0}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}.subpanel{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:clamp(22px,4vw,34px)}.subpanel h2{font-size:26px;margin:0 0 22px;letter-spacing:-.03em}.frustration{list-style:none;margin:0;padding:0}.frustration li{display:grid;grid-template-columns:38px 1fr;gap:12px;padding:14px 0;border-top:1px solid var(--line)}.frustration span{font-size:12px;color:var(--warning);font-weight:900}.frustration p{margin:0}.signals{margin:0;padding-left:20px;color:var(--muted)}.signals li+li{margin-top:12px}.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.action{display:grid;grid-template-columns:42px 1fr;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px}.action>span{color:var(--accent);font-size:12px;font-weight:900}.action h3{font-size:18px;margin:0 0 7px}.action p{color:var(--muted);margin:0}.footer{padding:32px 0 52px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;color:var(--muted);font-size:13px}.footer strong{color:var(--text)}
-    .insights-nav{display:flex;align-items:center;gap:18px}.insights-nav a{text-decoration:none;color:var(--accent);font-size:13px;font-weight:800}
-    @media(max-width:780px){.hero{padding-top:52px}.metrics{grid-template-columns:repeat(2,1fr)}.two-col,.actions{grid-template-columns:1fr}.section-head{align-items:start;flex-direction:column}.priority-card header{grid-template-columns:38px 1fr}.score{grid-column:2;text-align:left}.footer{flex-direction:column}}
-    @media(max-width:480px){.wrap{width:min(100% - 22px,1120px)}.topbar{padding-top:22px}.updated{max-width:170px}.metrics{grid-template-columns:1fr}.metric{min-height:auto}.priority-card{border-radius:18px}.priority-card header{gap:8px}.hero h1{font-size:44px}}
+    :root{--bg:#090b0e;--panel:#101419;--panel-2:#151b22;--text:#f4f7fa;--muted:#8b97a5;--line:#222a33;--accent:#8fbfff;--critical:#ff8585;--good:#77d9a4;--amber:#f2c66d}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:linear-gradient(180deg,#0d1117 0,#090b0e 620px);color:var(--text);font-family:Inter,"Segoe UI Variable Display","Segoe UI",ui-sans-serif,system-ui,sans-serif;line-height:1.55}
+    a{color:inherit}.wrap{width:min(1120px,calc(100% - 40px));margin:auto}.topbar{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}.brand{font-size:15px;font-weight:900;letter-spacing:.11em;text-decoration:none}.insights-nav{display:flex;align-items:center;gap:20px}.insights-nav a{text-decoration:none;color:var(--accent);font-size:13px;font-weight:750}.updated{font-size:12px;color:var(--muted);text-align:right}.hero{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:clamp(32px,7vw,90px);padding:64px 0 42px;align-items:end}.eyebrow,.section-kicker{text-transform:uppercase;letter-spacing:.13em;font-size:11px;color:var(--accent);font-weight:850}.hero h1{font-size:clamp(36px,5.6vw,66px);line-height:1.02;letter-spacing:-.055em;margin:14px 0 18px;max-width:790px}.hero-body{font-size:18px;max-width:760px;color:#bdc6d0;margin:0}.hero-context{border-left:1px solid var(--line);padding-left:24px;color:var(--muted);font-size:14px}.hero-context strong{display:block;color:var(--text);font-size:13px;margin-bottom:8px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin:0 0 84px}.metric{background:var(--panel);padding:20px;min-height:126px}.metric strong{display:block;font-size:34px;letter-spacing:-.05em}.metric span{display:block;font-size:14px;font-weight:750}.metric small{display:block;color:var(--muted);margin-top:7px;font-size:12px}.section{padding:0 0 84px}.section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:24px}.section-head h2{font-size:clamp(28px,4vw,42px);letter-spacing:-.045em;margin:5px 0 0}.section-head p{color:var(--muted);max-width:470px;margin:0;font-size:13px}.development-intro{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:34px;align-items:center;background:linear-gradient(135deg,rgba(143,191,255,.1),rgba(119,217,164,.04));border:1px solid rgba(143,191,255,.2);border-radius:18px;padding:24px;margin-bottom:12px}.development-intro>p{font-size:18px;max-width:720px;margin:0;color:#cad2da}.dev-stats{display:flex;gap:22px}.dev-stat strong{display:block;font-size:26px;letter-spacing:-.04em}.dev-stat span{display:block;font-size:11px;color:var(--muted);white-space:nowrap}.dev-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.dev-item{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:21px}.dev-item-head{display:flex;align-items:start;justify-content:space-between;gap:12px}.dev-item h3{font-size:18px;line-height:1.2;margin:0}.dev-item>p{color:var(--muted);margin:12px 0 0}.dev-status{flex:none;font-size:10px;line-height:1.2;text-transform:uppercase;letter-spacing:.07em;border:1px solid var(--line);border-radius:999px;padding:6px 8px;color:var(--muted)}.dev-status.confirmed{color:var(--good);border-color:rgba(119,217,164,.28);background:rgba(119,217,164,.07)}.dev-status.awaiting_qa{color:var(--amber);border-color:rgba(242,198,109,.28);background:rgba(242,198,109,.07)}.dev-links,.evidence{display:flex;flex-wrap:wrap;gap:7px;margin-top:18px}.dev-links a,.evidence a{text-decoration:none;color:var(--accent);font-size:12px;border-bottom:1px solid rgba(143,191,255,.28);padding-bottom:2px}.dev-note{font-size:12px;color:var(--muted);margin:14px 0 0}.priority-list{display:grid;gap:12px}.priority-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:clamp(20px,3vw,30px)}.priority-card header{display:grid;grid-template-columns:42px 1fr auto;gap:16px;align-items:start}.rank{font-size:12px;color:var(--accent);font-weight:900;letter-spacing:.1em;padding-top:5px}.priority-heading h3{font-size:clamp(20px,2.6vw,27px);letter-spacing:-.035em;line-height:1.15;margin:0 0 6px}.confidence{color:var(--muted);font-size:12px}.score{display:flex;align-items:baseline;gap:3px}.score strong{font-size:30px;letter-spacing:-.05em}.score span{color:var(--muted);font-size:11px}.summary{font-size:16px;max-width:860px;margin:20px 0 10px}.priority-card ul{margin:0;padding-left:20px;color:var(--muted)}.priority-card li+li{margin-top:4px}.next{margin-top:20px;padding-top:17px;border-top:1px solid var(--line)}.next span{display:block;color:var(--good);text-transform:uppercase;letter-spacing:.1em;font-size:10px;font-weight:900}.next p{margin:6px 0 0}.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.action{display:grid;grid-template-columns:36px 1fr;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}.action>span{color:var(--accent);font-size:11px;font-weight:900}.action h3{font-size:17px;margin:0 0 6px}.action p{color:var(--muted);margin:0;font-size:14px}.footer{padding:26px 0 44px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;color:var(--muted);font-size:12px}.footer strong{color:var(--text);letter-spacing:.08em}
+    @media(max-width:820px){.hero{grid-template-columns:1fr;padding-top:46px}.hero-context{border-left:0;border-top:1px solid var(--line);padding:18px 0 0}.metrics{grid-template-columns:repeat(2,1fr)}.development-intro{grid-template-columns:1fr}.dev-list,.actions{grid-template-columns:1fr}.section-head{align-items:start;flex-direction:column}.priority-card header{grid-template-columns:32px 1fr}.score{grid-column:2}.footer{flex-direction:column}}
+    @media(max-width:500px){.wrap{width:min(100% - 24px,1120px)}.topbar{align-items:start}.insights-nav{gap:10px;align-items:end;flex-direction:column}.hero{padding-top:38px}.hero h1{font-size:38px}.metrics{grid-template-columns:1fr}.metric{min-height:auto}.dev-stats{justify-content:space-between;gap:10px}.dev-item-head{display:block}.dev-status{display:inline-block;margin-top:10px}.priority-card header{gap:8px}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header class="topbar"><div class="brand">Basinger <span>/ QA Pulse</span></div><nav class="insights-nav"><a href="/insights/deaths">Death Map</a><div class="updated">Обновлено ${html(formatDate(report.generatedAt))}</div></nav></header>
+    <header class="topbar"><a class="brand" href="/insights">THE MANAGER</a><nav class="insights-nav"><a href="/insights/deaths">Death Map</a><div class="updated">${html(formatDate(report.generatedAt))}</div></nav></header>
     <main>
-      <section class="hero"><div class="eyebrow">Developer insights</div><h1>${html(report.title)}</h1><p>${html(report.subtitle)}</p></section>
+      <section class="hero"><div><div class="eyebrow">Текущая команда</div><h1>${html(report.lead.title)}</h1><p class="hero-body">${html(report.lead.body)}</p></div><aside class="hero-context"><strong>Контекст обновления</strong>${html(report.subtitle)}</aside></section>
       <section class="metrics" aria-label="Основные показатели">${metrics}</section>
-      <section class="lead"><div class="eyebrow">${html(report.lead.eyebrow)}</div><h2>${html(report.lead.title)}</h2><p>${html(report.lead.body)}</p></section>
+      ${developmentActivity}
       <section class="section"><div class="section-head"><h2>Внимание сейчас</h2><p>Приоритет учитывает влияние, повторяемость, возвраты, застой и фрустрацию.</p></div><div class="priority-list">${priorities}</div></section>
-      <section class="section two-col"><article class="subpanel"><h2>Что фрустрирует</h2><ol class="frustration">${frustration}</ol></article><article class="subpanel"><h2>Сигналы процесса</h2><ul class="signals">${processSignals}</ul></article></section>
-      <section class="section"><div class="section-head"><h2>Что делать команде</h2><p>Небольшие конкретные действия вместо попытки разбирать очередь по одной карточке.</p></div><div class="actions">${actions}</div></section>
+      <section class="section"><div class="section-head"><h2>Что делать сейчас</h2><p>Действия, которые двигают результат, а не только очередь.</p></div><div class="actions">${actions}</div></section>
     </main>
-    <footer class="footer"><strong>QA Pulse · read-only</strong><span>${html(report.footerNote ?? "Выводы помогают принимать решения, но не изменяют Trello автоматически.")}</span></footer>
+    <footer class="footer"><strong>THE MANAGER · READ ONLY</strong><span>${html(report.footerNote ?? "Источники помогают принимать решения, но не изменяют Trello автоматически.")}</span></footer>
   </div>
 </body>
 </html>`;
 }
 
 function unavailablePage(): string {
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QA Pulse</title><style>body{margin:0;background:#0b0b0c;color:#f3f7fb;font:16px/1.5 Manrope,Inter,system-ui,sans-serif;display:grid;min-height:100vh;place-items:center}.box{max-width:520px;padding:32px;background:#111214;border:1px solid rgba(255,255,255,.09);border-radius:20px}h1{margin:0 0 12px;font-size:30px}p{margin:0;color:rgba(226,235,247,.58)}</style></head><body><main class="box"><h1>Отчёт ещё не опубликован</h1><p>Страница работает, но для неё пока нет подготовленной QA-сводки.</p></main></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THE MANAGER</title><style>body{margin:0;background:#090b0e;color:#f4f7fa;font:16px/1.5 Inter,system-ui,sans-serif;display:grid;min-height:100vh;place-items:center}.box{max-width:520px;padding:32px;background:#101419;border:1px solid #222a33;border-radius:18px}h1{margin:0 0 12px;font-size:30px}p{margin:0;color:#8b97a5}</style></head><body><main class="box"><h1>THE MANAGER</h1><p>Текущая сводка ещё не опубликована.</p></main></body></html>`;
+}
+
+function isDevelopmentActivity(value: unknown): value is DevelopmentActivity {
+  if (!value || typeof value !== "object") return false;
+  const activity = value as Partial<DevelopmentActivity>;
+  return typeof activity.window === "string"
+    && typeof activity.title === "string"
+    && typeof activity.summary === "string"
+    && Array.isArray(activity.stats)
+    && Array.isArray(activity.items);
 }
 
 function isPublishedReport(value: unknown): value is PublishedInsightsReport {
@@ -196,6 +251,7 @@ function isPublishedReport(value: unknown): value is PublishedInsightsReport {
     && typeof report.subtitle === "string"
     && Array.isArray(report.metrics)
     && Boolean(report.lead)
+    && (report.developmentActivity === undefined || isDevelopmentActivity(report.developmentActivity))
     && Array.isArray(report.priorities)
     && Array.isArray(report.frustration)
     && Array.isArray(report.processSignals)
@@ -243,7 +299,7 @@ export function createInsightsRouter(): Router {
 
   router.use((request, response, next) => {
     if (!isAuthorized(request)) {
-      response.set("WWW-Authenticate", 'Basic realm="QA Insights", charset="UTF-8"');
+      response.set("WWW-Authenticate", 'Basic realm="THE MANAGER", charset="UTF-8"');
       response.sendStatus(401);
       return;
     }
@@ -324,7 +380,7 @@ export function createInsightsRouter(): Router {
     }
 
     try {
-      response.status(200).type("html").send(reportPage(report));
+      response.status(200).type("html").send(renderInsightsReportPage(report));
     } catch (error) {
       logger.warn("insights report render failed", {
         error: error instanceof Error ? error.message : String(error),

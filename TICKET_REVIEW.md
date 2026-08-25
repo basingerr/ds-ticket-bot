@@ -41,6 +41,28 @@ The public-facing report must:
 - distinguish confirmed clusters from broad themes and hypotheses;
 - be reviewed for accidental secrets before publishing.
 
+## Git activity enrichment
+
+When the user asks to include developer activity, enrich the published report from the canonical game-code mirror:
+
+```text
+C:\Users\qwert\OneDrive\Documents\GTA5 Developer\external\rejoin-server
+```
+
+1. Fetch current remote refs without changing the working branch.
+2. Use the two compared ticket snapshot timestamps as the review window.
+3. Resolve the `origin/production` first-parent commit immediately before each boundary and compare the two production trees. Do not rely only on individual commit timestamps: an older dev commit may enter production through a merge inside the window.
+4. Exclude merge duplication and inspect the actual diff before associating a change with a ticket or issue cluster.
+5. Publish only safe commit/PR links and concise conclusions. Do not expose private code excerpts, credentials, internal IDs, or raw author data.
+
+Use these evidence states:
+
+- `confirmed` — a matching code change exists and Trello/QA also says Done;
+- `awaiting_qa` — the change landed in the production branch, but deployment and/or QA confirmation is missing;
+- `code_only` — relevant development activity exists, but its connection to a ticket is unproven.
+
+A production-branch merge is not proof that the build is deployed to the game server, and a code change is not proof that the player-facing defect is fixed. Git evidence must never close a ticket automatically or reduce priority without QA or equivalent runtime confirmation.
+
 Page availability and HTTP Basic authentication are controlled separately through `INSIGHTS_ENABLED`, `INSIGHTS_USERNAME`, and `INSIGHTS_PASSWORD`. Never put the password into a report or commit it.
 
 ## Supported review modes
