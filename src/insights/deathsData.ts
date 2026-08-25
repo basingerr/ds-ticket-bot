@@ -18,6 +18,9 @@ type MapPoi = {
   kind: "job" | "service" | "vehicles" | "housing" | "activity" | "faction" | "publicTransport";
   group: "poi" | "atm";
   position: MapPoint;
+  icon?: "247shop" | "airport" | "atm" | "autoSchool" | "cityHall" | "dump" | "fireStation" | "gasStation" | "goPostal" | "hospital" | "hotel" | "parking" | "policeStation" | "port" | "roadRepair" | "trashCollector" | "vehicleShopPremium";
+  sprite?: number;
+  color?: number;
 };
 type MapZone = {
   id: string;
@@ -87,6 +90,7 @@ export async function loadPublishedDeaths(): Promise<PublishedDeath[]> {
 }
 
 const poiKinds = new Set<MapPoi["kind"]>(["job", "service", "vehicles", "housing", "activity", "faction", "publicTransport"]);
+const poiIcons = new Set<NonNullable<MapPoi["icon"]>>(["247shop", "airport", "atm", "autoSchool", "cityHall", "dump", "fireStation", "gasStation", "goPostal", "hospital", "hotel", "parking", "policeStation", "port", "roadRepair", "trashCollector", "vehicleShopPremium"]);
 
 function cleanText(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
@@ -104,7 +108,12 @@ function sanitizePoi(value: unknown): MapPoi | null {
   const z = finiteNumber(poi.position?.z);
   if (!id || !label || !poiKinds.has(poi.kind as MapPoi["kind"]) || (poi.group !== "poi" && poi.group !== "atm") || x === null || y === null || z === null) return null;
   if (x < -10000 || x > 13000 || y < -10000 || y > 13000) return null;
-  return { id, label, kind: poi.kind as MapPoi["kind"], group: poi.group, position: { x, y, z } };
+  const icon = poiIcons.has(poi.icon as NonNullable<MapPoi["icon"]>) ? poi.icon : undefined;
+  const spriteValue = finiteNumber(poi.sprite);
+  const colorValue = finiteNumber(poi.color);
+  const sprite = spriteValue !== null && Number.isInteger(spriteValue) && spriteValue >= 0 && spriteValue <= 1000 ? spriteValue : undefined;
+  const color = colorValue !== null && Number.isInteger(colorValue) && colorValue >= 0 && colorValue <= 255 ? colorValue : undefined;
+  return { id, label, kind: poi.kind as MapPoi["kind"], group: poi.group, position: { x, y, z }, icon, sprite, color };
 }
 
 function sanitizeZone(value: unknown): MapZone | null {

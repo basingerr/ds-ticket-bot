@@ -164,7 +164,7 @@ Private death heatmap:
 GET /insights/deaths
 ```
 
-The heatmap uses the same HTTP Basic authentication as `/insights`. It reads the current server-only ClickHouse result file from `INSIGHTS_DEATHS_DATA_PATH`, HD GTA map tiles from `INSIGHTS_DEATHS_TILES_PATH`, and sanitized public map context from `INSIGHTS_DEATHS_CONTEXT_PATH`. The response strips `player_id` and `killer_id`; the browser only receives cause, coordinates, timestamp, and a `killed_by_player` flag. Optional map layers show public POIs, ATMs, safe/police zones, deaths near POIs, and timeline playback. Criminal and organization locations are excluded by the context generator. Replace the source files manually when a new slice is needed; no bot restart is required.
+The heatmap uses the same HTTP Basic authentication as `/insights`. It reads the current server-only ClickHouse result file from `INSIGHTS_DEATHS_DATA_PATH`, HD GTA map tiles from `INSIGHTS_DEATHS_TILES_PATH`, and sanitized public map context from `INSIGHTS_DEATHS_CONTEXT_PATH`. The response strips `player_id` and `killer_id`; the browser only receives cause, coordinates, timestamp, and a `killed_by_player` flag. Optional map layers show public POIs, ATMs, safe/police zones, deaths near POIs, and timeline playback. Known POIs use the original Rejoin GPS SVG icons at close zoom; the context also preserves GTA blip sprite/color IDs for future atlas coverage. Criminal and organization locations are excluded by the context generator. Replace the source files manually when a new slice is needed; no bot restart is required.
 
 Generate `map-context.json` from a local checkout of `rejoin-server`:
 

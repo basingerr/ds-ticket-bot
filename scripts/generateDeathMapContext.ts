@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 type Position = { x: number; y: number; z?: number };
 type PoiKind = "job" | "service" | "vehicles" | "housing" | "activity" | "faction" | "publicTransport";
+type PoiIcon = "247shop" | "airport" | "atm" | "autoSchool" | "cityHall" | "dump" | "fireStation" | "gasStation" | "goPostal" | "hospital" | "hotel" | "parking" | "policeStation" | "port" | "roadRepair" | "trashCollector" | "vehicleShopPremium";
 
 function arg(name: string): string {
   const prefix = `--${name}=`;
@@ -31,6 +32,24 @@ function cleanPosition(position: Position): Required<Position> {
   return { x: Number(position.x), y: Number(position.y), z: Number(position.z ?? 0) };
 }
 
+function iconForKey(key: string): PoiIcon | undefined {
+  const exact: Record<string, PoiIcon> = {
+    "blips.market": "247shop",
+    "blips.autoSchool": "autoSchool",
+    "blips.fireFighter": "fireStation",
+    "blips.gasStation": "gasStation",
+    "blips.goPostal": "goPostal",
+    "blips.motel": "hotel",
+    "blips.port": "port",
+    "blips.roadRepair": "roadRepair",
+    "blips.trashCollector": "trashCollector",
+  };
+  if (exact[key]) return exact[key];
+  if (key.startsWith("blips.fireFighter")) return "fireStation";
+  if (key.startsWith("blips.vehicleShop")) return "vehicleShopPremium";
+  return undefined;
+}
+
 const source = arg("source");
 const output = arg("output");
 const moduleUrl = (path: string) => pathToFileURL(resolve(source, path)).href;
@@ -49,9 +68,9 @@ const [pedsModule, blipInfoModule, atmsModule, zonesModule, policeModule, hospit
 const ru = ruModule.default as unknown;
 const blipInfo = blipInfoModule.BLIP_INFO as Record<string, { kind?: string }>;
 const allowedKinds = new Set<PoiKind>(["job", "service", "vehicles", "housing", "activity", "faction", "publicTransport"]);
-const pois: Array<{ id: string; label: string; kind: PoiKind; group: string; position: Required<Position> }> = [];
+const pois: Array<{ id: string; label: string; kind: PoiKind; group: string; position: Required<Position>; icon?: PoiIcon; sprite?: number; color?: number }> = [];
 
-for (const [index, ped] of (pedsModule.DialoguePeds as Array<{ position: Position; marker?: { name?: string; infoKey?: string; dimension?: number } }>).entries()) {
+for (const [index, ped] of (pedsModule.DialoguePeds as Array<{ position: Position; marker?: { name?: string; infoKey?: string; dimension?: number; sprite?: number; color?: number } }>).entries()) {
   if (!ped.marker || Number(ped.marker.dimension ?? 0) !== 0) continue;
   const key = ped.marker.infoKey ?? ped.marker.name ?? "blips.point";
   const kind = blipInfo[key]?.kind;
@@ -62,11 +81,14 @@ for (const [index, ped] of (pedsModule.DialoguePeds as Array<{ position: Positio
     kind: kind as PoiKind,
     group: "poi",
     position: cleanPosition(ped.position),
+    icon: iconForKey(key),
+    sprite: Number.isFinite(ped.marker.sprite) ? ped.marker.sprite : undefined,
+    color: Number.isFinite(ped.marker.color) ? ped.marker.color : undefined,
   });
 }
 
 for (const [index, position] of (atmsModule.atmPositions as Position[]).entries()) {
-  pois.push({ id: `atm:${index}`, label: "Банкомат", kind: "service", group: "atm", position: cleanPosition(position) });
+  pois.push({ id: `atm:${index}`, label: "Банкомат", kind: "service", group: "atm", position: cleanPosition(position), icon: "atm", sprite: 108, color: 2 });
 }
 
 for (const [index, hospital] of (hospitalsModule.hospitals as Array<{ name: string; infoKey: string; coords: Position }>).entries()) {
@@ -76,11 +98,14 @@ for (const [index, hospital] of (hospitalsModule.hospitals as Array<{ name: stri
     kind: "faction",
     group: "poi",
     position: cleanPosition(hospital.coords),
+    icon: "hospital",
+    sprite: 61,
+    color: 1,
   });
 }
 
 for (const parking of parkingModule.parkingLots as Array<{ id: string; name: string; position: Position }>) {
-  pois.push({ id: `parking:${parking.id}`, label: parking.name, kind: "vehicles", group: "poi", position: cleanPosition(parking.position) });
+  pois.push({ id: `parking:${parking.id}`, label: parking.name, kind: "vehicles", group: "poi", position: cleanPosition(parking.position), icon: "parking" });
 }
 
 const zones = (zonesModule.SAFE_ZONES as Array<{ id: string; nameKey: string; shape: unknown }>).map((zone) => ({

@@ -294,6 +294,18 @@ export function createInsightsRouter(): Router {
     });
   });
 
+  router.get("/deaths/icons/:file", (request, response) => {
+    const file = request.params.file;
+    if (!/^[a-zA-Z0-9-]+\.svg$/.test(file)) {
+      response.sendStatus(404);
+      return;
+    }
+    response.set("Cache-Control", "private, max-age=604800");
+    response.sendFile(resolve(deathsUiPath, "icons", file), (error) => {
+      if (error && !response.headersSent) response.sendStatus(404);
+    });
+  });
+
   router.use("/deaths/vendor/leaflet", express.static(leafletPath, {
     fallthrough: false,
     immutable: true,

@@ -193,10 +193,21 @@
       const renderer = L.canvas({ padding: 0.4 });
       state.context.pois.filter((poi) => poi.group === 'atm' ? state.showAtms : state.showPois).forEach((poi) => {
         const color = kindColors[poi.kind] || '#cbd2da';
-        L.circleMarker(gtaToLatLng(poi.position.x, poi.position.y), {
-          renderer, radius: poi.group === 'atm' ? 3 : 5, weight: 1, color: '#071018', fillColor: color, fillOpacity: 0.9,
-        }).bindPopup(`<strong>${escapeHtml(poi.label)}</strong><br>${escapeHtml(kindLabels[poi.kind] || poi.kind)}<br>X ${poi.position.x.toFixed(1)} · Y ${poi.position.y.toFixed(1)}`)
-          .addTo(poiLayer);
+        const popup = `<strong>${escapeHtml(poi.label)}</strong><br>${escapeHtml(kindLabels[poi.kind] || poi.kind)}<br>X ${poi.position.x.toFixed(1)} · Y ${poi.position.y.toFixed(1)}`;
+        const position = gtaToLatLng(poi.position.x, poi.position.y);
+        if (map.getZoom() >= 5 && poi.icon) {
+          const iconUrl = `${INSIGHTS_BASE_URL}/icons/${encodeURIComponent(poi.icon)}.svg`;
+          const icon = L.divIcon({
+            className: 'poi-blip-shell',
+            html: `<span class="poi-blip" style="--poi-color:${color}"><img src="${iconUrl}" alt=""></span>`,
+            iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13],
+          });
+          L.marker(position, { icon }).bindPopup(popup).addTo(poiLayer);
+        } else {
+          L.circleMarker(position, {
+            renderer, radius: poi.group === 'atm' ? 3 : 5, weight: 1, color: '#071018', fillColor: color, fillOpacity: 0.9,
+          }).bindPopup(popup).addTo(poiLayer);
+        }
       });
       poiLayer.addTo(map);
     }
@@ -282,6 +293,7 @@
   dom.pois.addEventListener('change', () => { state.showPois = dom.pois.checked; renderContextLayers(); });
   dom.zones.addEventListener('change', () => { state.showZones = dom.zones.checked; renderContextLayers(); });
   dom.atms.addEventListener('change', () => { state.showAtms = dom.atms.checked; renderContextLayers(); });
+  map.on('zoomend', () => { if (state.showPois || state.showAtms) renderContextLayers(); });
   dom.reset.addEventListener('click', fitMainIsland);
   dom.exportButton.addEventListener('click', async () => {
     dom.exportButton.disabled = true;
@@ -305,7 +317,7 @@
       if (!response.ok) throw new Error(`Данные недоступны (${response.status})`);
       return response.json();
     }),
-    fetch(`${INSIGHTS_BASE_URL}/context`).then((response) => response.ok ? response.json() : null),
+    fetch(`${INSIGHTS_BASE_URL}/context?v=2`).then((response) => response.ok ? response.json() : null),
   ]).then(([deathsInput, contextInput]) => {
     state.deaths = parseDeaths(deathsInput);
     if (!state.deaths.length) throw new Error('В файле нет корректных событий');
