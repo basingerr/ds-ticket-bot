@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import express, { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
 import { logger } from "../utils/logger.js";
-import { loadPublishedDeaths } from "./deathsData.js";
+import { loadPublishedDeaths, loadPublishedMapContext } from "./deathsData.js";
 
 type ReportLink = {
   label: string;
@@ -265,6 +265,20 @@ export function createInsightsRouter(): Router {
         error: error instanceof Error ? error.message : String(error),
       });
       response.status(503).json({ error: "death insights data unavailable" });
+    }
+  });
+
+  router.get("/deaths/context", async (_request, response) => {
+    try {
+      const context = await loadPublishedMapContext();
+      response.set("Cache-Control", "private, max-age=300");
+      response.status(200).json(context);
+    } catch (error) {
+      logger.warn("death insights context unavailable", {
+        path: resolve(process.cwd(), config.insights.deathsContextPath),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      response.status(503).json({ error: "death insights context unavailable" });
     }
   });
 

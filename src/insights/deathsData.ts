@@ -11,6 +11,29 @@ export type PublishedDeath = {
   killed_by_player: boolean;
 };
 
+type MapPoint = { x: number; y: number; z: number };
+type MapPoi = {
+  id: string;
+  label: string;
+  kind: "job" | "service" | "vehicles" | "housing" | "activity" | "faction" | "publicTransport";
+  group: "poi" | "atm";
+  position: MapPoint;
+};
+type MapZone = {
+  id: string;
+  label: string;
+  kind: "safe" | "police";
+  shape: { kind: "circle"; x: number; y: number; radius: number; minZ?: number; maxZ?: number }
+    | { kind: "poly"; points: Array<{ x: number; y: number }>; minZ?: number; maxZ?: number };
+};
+export type PublishedMapContext = {
+  schemaVersion: 1;
+  generatedAt: string;
+  sourceCommit: string;
+  pois: MapPoi[];
+  zones: MapZone[];
+};
+
 type RawDeath = Partial<{
   cause: unknown;
   pos_x: unknown;
@@ -61,4 +84,66 @@ export async function loadPublishedDeaths(): Promise<PublishedDeath[]> {
   const deaths = rows.map(sanitizeDeath).filter((row): row is PublishedDeath => row !== null);
   if (deaths.length === 0) throw new Error("death insights file has no valid events");
   return deaths;
+}
+
+const poiKinds = new Set<MapPoi["kind"]>(["job", "service", "vehicles", "housing", "activity", "faction", "publicTransport"]);
+
+function cleanText(value: unknown, maxLength: number): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim().slice(0, maxLength);
+  return cleaned || null;
+}
+
+function sanitizePoi(value: unknown): MapPoi | null {
+  if (!value || typeof value !== "object") return null;
+  const poi = value as Partial<MapPoi>;
+  const id = cleanText(poi.id, 96);
+  const label = cleanText(poi.label, 96);
+  const x = finiteNumber(poi.position?.x);
+  const y = finiteNumber(poi.position?.y);
+  const z = finiteNumber(poi.position?.z);
+  if (!id || !label || !poiKinds.has(poi.kind as MapPoi["kind"]) || (poi.group !== "poi" && poi.group !== "atm") || x === null || y === null || z === null) return null;
+  if (x < -10000 || x > 13000 || y < -10000 || y > 13000) return null;
+  return { id, label, kind: poi.kind as MapPoi["kind"], group: poi.group, position: { x, y, z } };
+}
+
+function sanitizeZone(value: unknown): MapZone | null {
+  if (!value || typeof value !== "object") return null;
+  const zone = value as Partial<MapZone>;
+  const id = cleanText(zone.id, 96);
+  const label = cleanText(zone.label, 96);
+  if (!id || !label || (zone.kind !== "safe" && zone.kind !== "police") || !zone.shape) return null;
+  const minZ = finiteNumber(zone.shape.minZ) ?? undefined;
+  const maxZ = finiteNumber(zone.shape.maxZ) ?? undefined;
+  if (zone.shape.kind === "circle") {
+    const x = finiteNumber(zone.shape.x);
+    const y = finiteNumber(zone.shape.y);
+    const radius = finiteNumber(zone.shape.radius);
+    if (x === null || y === null || radius === null || radius <= 0 || radius > 1000 || x < -10000 || x > 13000 || y < -10000 || y > 13000) return null;
+    return { id, label, kind: zone.kind, shape: { kind: "circle", x, y, radius, minZ, maxZ } };
+  }
+  if (zone.shape.kind === "poly" && Array.isArray(zone.shape.points)) {
+    const points = zone.shape.points.slice(0, 100).map((point) => ({ x: finiteNumber(point.x), y: finiteNumber(point.y) }));
+    if (points.length < 3 || points.some((point) => point.x === null || point.y === null)) return null;
+    if (points.some((point) => point.x! < -10000 || point.x! > 13000 || point.y! < -10000 || point.y! > 13000)) return null;
+    return { id, label, kind: zone.kind, shape: { kind: "poly", points: points as Array<{ x: number; y: number }>, minZ, maxZ } };
+  }
+  return null;
+}
+
+export async function loadPublishedMapContext(): Promise<PublishedMapContext> {
+  const path = resolve(process.cwd(), config.insights.deathsContextPath);
+  const parsed = JSON.parse(await readFile(path, "utf8")) as Partial<PublishedMapContext>;
+  if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.pois) || !Array.isArray(parsed.zones)) {
+    throw new Error("unsupported death map context schema");
+  }
+  const pois = parsed.pois.map(sanitizePoi).filter((poi): poi is MapPoi => poi !== null);
+  const zones = parsed.zones.map(sanitizeZone).filter((zone): zone is MapZone => zone !== null);
+  return {
+    schemaVersion: 1,
+    generatedAt: cleanText(parsed.generatedAt, 40) ?? "",
+    sourceCommit: cleanText(parsed.sourceCommit, 64) ?? "",
+    pois,
+    zones,
+  };
 }

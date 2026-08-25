@@ -15,6 +15,7 @@
     "backfill:tickets:prod": "node dist/discord/backfillTrelloTickets.js",
     "insights:export": "tsx src/insights/exportTicketReview.ts",
     "insights:export:prod": "node dist/insights/exportTicketReview.js",
+    "insights:deaths-context": "tsx scripts/generateDeathMapContext.ts",
     "trello:webhook": "tsx src/trello/manageWebhook.ts",
     "trello:webhook:prod": "node dist/trello/manageWebhook.js"
   },

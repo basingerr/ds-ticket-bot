@@ -140,5 +140,6 @@ export const config = {
     reportPath: optional("INSIGHTS_REPORT_PATH", "./exports/ticket-review/published.json"),
     deathsDataPath: optional("INSIGHTS_DEATHS_DATA_PATH", "./exports/death-insights/result.json"),
     deathsTilesPath: optional("INSIGHTS_DEATHS_TILES_PATH", "./exports/death-insights/atlas"),
+    deathsContextPath: optional("INSIGHTS_DEATHS_CONTEXT_PATH", "./exports/death-insights/map-context.json"),
   },
 };

@@ -208,6 +208,7 @@ The heatmap is available at `https://tickets.basinger.cc/insights/deaths` under 
 ```bash
 sudo install -d -m 750 -o ds-ticket-bot -g ds-ticket-bot /opt/ds-ticket-bot/exports/death-insights/atlas
 sudo install -m 640 -o ds-ticket-bot -g ds-ticket-bot result.json /opt/ds-ticket-bot/exports/death-insights/result.json
+sudo install -m 640 -o ds-ticket-bot -g ds-ticket-bot map-context.json /opt/ds-ticket-bot/exports/death-insights/map-context.json
 sudo rsync -a --delete atlas/ /opt/ds-ticket-bot/exports/death-insights/atlas/
 sudo chown -R ds-ticket-bot:ds-ticket-bot /opt/ds-ticket-bot/exports/death-insights
 ```
@@ -217,9 +218,10 @@ Optional explicit paths in `/opt/ds-ticket-bot/.env`:
 ```env
 INSIGHTS_DEATHS_DATA_PATH=./exports/death-insights/result.json
 INSIGHTS_DEATHS_TILES_PATH=./exports/death-insights/atlas
+INSIGHTS_DEATHS_CONTEXT_PATH=./exports/death-insights/map-context.json
 ```
 
-For a routine data refresh, replace only `result.json`. The route reads it on every request and removes player IDs before returning data to the browser; restart is not required.
+For a routine data refresh, replace only `result.json`. To refresh public POIs and zones after a server-code change, regenerate and replace `map-context.json`. Both routes read their files on request (map context may be cached by the browser for up to five minutes); restart is not required.
 
 SQLite backups:
 

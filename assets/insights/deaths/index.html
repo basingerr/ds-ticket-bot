@@ -45,6 +45,12 @@
           </select>
         </div>
 
+        <div class="control-group timeline-control">
+          <div class="range-label"><label for="timeline-filter">Хронология</label><output id="timeline-value">Все события</output></div>
+          <input id="timeline-filter" type="range" min="0" max="100" step="1" value="100">
+          <button id="timeline-play" type="button">Воспроизвести</button>
+        </div>
+
         <div class="control-group cause-list" id="cause-list">
           <span class="control-label">Причина смерти</span>
         </div>
@@ -58,6 +64,18 @@
           <span><strong>Исходные точки</strong><small>Клик показывает событие и координаты</small></span>
           <input id="points-toggle" type="checkbox">
         </label>
+
+        <div class="control-group layer-controls">
+          <span class="control-label">Контекст карты</span>
+          <label><span><strong>Точки интереса</strong><small>Работы, сервисы, транспорт и активности</small></span><input id="poi-toggle" type="checkbox"></label>
+          <label><span><strong>Safe-зоны</strong><small>Безопасные и полицейские территории</small></span><input id="zones-toggle" type="checkbox"></label>
+          <label><span><strong>Банкоматы</strong><small>Отдельный слой без перегруза основной карты</small></span><input id="atms-toggle" type="checkbox"></label>
+        </div>
+
+        <div class="control-group hotspots-panel">
+          <div class="hotspots-head"><span class="control-label">Опасные точки · 100 м</span><small id="context-count">Контекст загружается</small></div>
+          <ol class="hotspots-list" id="hotspots-list" aria-live="polite"><li class="empty-hotspot">Нет данных</li></ol>
+        </div>
 
         <div class="control-group map-actions">
           <button id="reset-view" type="button">Показать всю карту</button>

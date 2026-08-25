@@ -64,7 +64,7 @@ Important: only one bot instance should run with the production Discord token. D
 - `/bhealth` provides admin-only private diagnostics for Discord, Trello, SQLite, webhook, mode, public URL, and reconciliation.
 - `/blogs` provides admin-only private recent in-memory logs from the current bot process; it does not replace journalctl for logs before restart.
 - On QA testing statuses, the status embed shows author-only feedback buttons: fixed or needs work. Button actions add Trello comments and post compact alerts to `QA_REPLY_ALERT_CHANNEL_ID`.
-- `/insights/deaths` serves the private HD GTA death heatmap under the existing Insights Basic Auth. Its raw ClickHouse result and map tiles remain server-only under ignored `exports/death-insights/`; player IDs are stripped from the HTTP response.
+- `/insights/deaths` serves the private HD GTA death heatmap under the existing Insights Basic Auth. Its raw ClickHouse result, sanitized public map context, and map tiles remain server-only under ignored `exports/death-insights/`; player IDs are stripped from the HTTP response. Context generation excludes criminal and organization locations.
 
 ## Current Trello card description format
 
@@ -150,6 +150,7 @@ INSIGHTS_PASSWORD=
 INSIGHTS_REPORT_PATH=./exports/ticket-review/published.json
 INSIGHTS_DEATHS_DATA_PATH=./exports/death-insights/result.json
 INSIGHTS_DEATHS_TILES_PATH=./exports/death-insights/atlas
+INSIGHTS_DEATHS_CONTEXT_PATH=./exports/death-insights/map-context.json
 ```
 
 Set `RECONCILE_INTERVAL_MS=0` to disable the reconciliation job.
