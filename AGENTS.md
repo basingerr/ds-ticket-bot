@@ -255,7 +255,8 @@ When the user asks in Russian or English for a ticket overview, ticket review, p
 3. Run `npm run insights:export` locally, or `npm run insights:export:prod` on the VDS when the current production data is only available there. Default to pulse; use deep or baseline only under the conditions in `TICKET_REVIEW.md`.
 4. Analyze the newest `review-bundle-*.json` first and reuse exact-hash records from `reports/the-manager/ticket-source-cache.json`. Open the complete immutable snapshot only for necessary evidence. For a raw delta audit, compare the two compatible snapshots.
 5. Analyze the evidence and answer using the report contract in `TICKET_REVIEW.md`.
-6. Keep the workflow read-only. Never move cards, add comments, change labels, archive items, or write to Discord unless the user explicitly asks for that separate action.
+6. After completing the semantic review, update the source cache and advance `reports/the-manager/ticket-review-state.json` to the reviewed snapshot. Never advance it merely because an export succeeded.
+7. Keep the workflow read-only. Never move cards, add comments, change labels, archive items, or write to Discord unless the user explicitly asks for that separate action.
 
 Useful trigger phrases include:
 

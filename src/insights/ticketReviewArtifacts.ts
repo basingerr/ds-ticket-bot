@@ -74,6 +74,12 @@ export type SemanticSourceCache = {
   records: SemanticSourceRecord[];
 };
 
+export type TicketReviewState = {
+  schemaVersion: 1;
+  lastReviewedSnapshot: string | null;
+  updatedAt: string | null;
+};
+
 const emptyCache: SemanticSourceCache = { schemaVersion: 1, updatedAt: null, records: [] };
 
 export async function loadSemanticSourceCache(path: string): Promise<SemanticSourceCache> {
@@ -93,6 +99,30 @@ export async function ensureSemanticSourceCache(path: string): Promise<void> {
   }
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(emptyCache, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+}
+
+export async function loadTicketReviewState(path: string): Promise<TicketReviewState | null> {
+  if (!existsSync(path)) {
+    return null;
+  }
+  const parsed = JSON.parse(await readFile(path, "utf8")) as Partial<TicketReviewState>;
+  if (parsed.schemaVersion !== 1 || (parsed.lastReviewedSnapshot !== null && typeof parsed.lastReviewedSnapshot !== "string")) {
+    throw new Error(`Unsupported ticket review state: ${path}`);
+  }
+  return {
+    schemaVersion: 1,
+    lastReviewedSnapshot: parsed.lastReviewedSnapshot ?? null,
+    updatedAt: parsed.updatedAt ?? null,
+  };
+}
+
+export async function ensureTicketReviewState(path: string, lastReviewedSnapshot: string | null): Promise<void> {
+  if (existsSync(path)) {
+    return;
+  }
+  await mkdir(dirname(path), { recursive: true });
+  const state: TicketReviewState = { schemaVersion: 1, lastReviewedSnapshot, updatedAt: new Date().toISOString() };
+  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
 }
 
 function cleanText(value: string): string {

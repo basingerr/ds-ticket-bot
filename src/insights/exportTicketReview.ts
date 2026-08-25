@@ -9,7 +9,9 @@ import { promisify } from "node:util";
 import {
   buildReviewBundle,
   ensureSemanticSourceCache,
+  ensureTicketReviewState,
   loadSemanticSourceCache,
+  loadTicketReviewState,
   type ExportedTicketCard,
   type TicketReviewSnapshot,
 } from "./ticketReviewArtifacts.js";
@@ -341,6 +343,41 @@ async function loadLatestCompatibleSnapshot(exportDir: string, actionLimit: numb
   return null;
 }
 
+async function loadCompatibleSnapshotByName(exportDir: string, name: string | null, actionLimit: number): Promise<{ name: string; snapshot: PreviousSnapshot } | null> {
+  if (!name || !/^snapshot-.*\.json$/u.test(name)) {
+    return null;
+  }
+  const path = resolve(exportDir, name);
+  if (!existsSync(path)) {
+    return null;
+  }
+  const snapshot = JSON.parse(await readFile(path, "utf8")) as PreviousSnapshot;
+  if (snapshot.schemaVersion !== 4
+    || snapshot.source?.trelloBoardId !== trelloBoardId
+    || snapshot.source?.actionLimit !== actionLimit
+    || !Array.isArray(snapshot.cards)) {
+    return null;
+  }
+  return { name, snapshot };
+}
+
+async function inferReviewedSnapshotFromLedger(): Promise<string | null> {
+  const ledgerPath = resolve(process.cwd(), "reports", "the-manager", "semantic-ledger.json");
+  if (!existsSync(ledgerPath)) {
+    return null;
+  }
+  try {
+    const ledger = JSON.parse(await readFile(ledgerPath, "utf8")) as { sourceReviews?: Array<{ snapshot?: string }> };
+    const snapshots = (ledger.sourceReviews ?? [])
+      .map((review) => review.snapshot)
+      .filter((snapshot): snapshot is string => typeof snapshot === "string" && snapshot.length > 0);
+    return snapshots.length > 0 ? basename(snapshots[snapshots.length - 1]) : null;
+  } catch (error) {
+    console.warn(`Could not infer review boundary from semantic ledger: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
 async function main(): Promise<void> {
   const args = parseArgs();
   const generatedAt = new Date();
@@ -351,6 +388,13 @@ async function main(): Promise<void> {
   const previousSnapshot = args.mode === "baseline"
     ? null
     : await loadLatestCompatibleSnapshot(exportDir, args.actionLimit);
+  const reviewStatePath = resolve(process.cwd(), "reports", "the-manager", "ticket-review-state.json");
+  const inferredReviewBoundary = await inferReviewedSnapshotFromLedger() ?? previousSnapshot?.name ?? null;
+  await ensureTicketReviewState(reviewStatePath, inferredReviewBoundary);
+  const reviewStateMemory = await loadTicketReviewState(reviewStatePath);
+  const analysisBaseline = args.mode === "baseline"
+    ? null
+    : await loadCompatibleSnapshotByName(exportDir, reviewStateMemory?.lastReviewedSnapshot ?? null, args.actionLimit);
 
   const [lists, allCards] = await Promise.all([
     trelloGet<TrelloList[]>(`/boards/${encodeURIComponent(trelloBoardId)}/lists`, {
@@ -506,9 +550,9 @@ async function main(): Promise<void> {
   const semanticCache = await loadSemanticSourceCache(semanticCachePath);
   const bundle = buildReviewBundle({
     current: snapshot,
-    previous: previousSnapshot?.snapshot ?? null,
+    previous: analysisBaseline?.snapshot ?? null,
     currentSnapshotName: basename(outputPath),
-    previousSnapshotName: previousSnapshot?.name ?? null,
+    previousSnapshotName: analysisBaseline?.name ?? null,
     depth: args.mode,
     cache: semanticCache,
   });

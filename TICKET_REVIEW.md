@@ -42,6 +42,8 @@ Analyze `review-bundle-*.json` first. It removes Discord identity boilerplate an
 
 Compact per-card meaning lives in ignored `reports/the-manager/ticket-source-cache.json`. After reviewing a record, replace its cache entry with the current `contentHash`, concise meaning, classification, subsystem, cluster, evidence quality, recovery behavior, needs-info question, and review timestamp. Never copy raw ticket text into this cache.
 
+The semantic review boundary lives separately in ignored `reports/the-manager/ticket-review-state.json`. The exporter may use the newest snapshot to reuse Trello histories, but the review bundle is always compared with `lastReviewedSnapshot`. Advance that field only after all required records in the bundle have been semantically reviewed and the cache and Manager ledger are updated. A repeated export before analysis must continue to show the pending changes.
+
 ## Publishing the team page
 
 Only when the user explicitly asks to publish or update the shared page, write the approved human-facing summary as schema version 1 JSON to the configured `INSIGHTS_REPORT_PATH` (default `exports/ticket-review/published.json`). The `/insights` route reads this file for every request, so report updates do not require a bot restart.

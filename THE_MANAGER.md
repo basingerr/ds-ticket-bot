@@ -105,11 +105,14 @@ The current internal Manager memory lives in:
 reports/the-manager/semantic-ledger.json
 reports/the-manager/current-brief.md
 reports/the-manager/ticket-source-cache.json
+reports/the-manager/ticket-review-state.json
 ```
 
 These files are ignored because they may contain internal project analysis. Raw ticket content remains in snapshots and detailed reviews; the ledger stores only concise meaning, source references, state, and decisions.
 
 Reuse unchanged semantic records from `ticket-source-cache.json`. Re-read new or changed source records, update their compact cache entries, then recompute priorities across the whole known picture. The cache stores meaning and hashes, never raw descriptions, identities, comments, or attachments.
+
+`ticket-review-state.json` stores the last snapshot whose changes were actually semantically reviewed. Advance this boundary only after the corresponding review and cache updates are complete. Exporting a snapshot alone must not mark its evidence as reviewed.
 
 ### Manager Brief
 
