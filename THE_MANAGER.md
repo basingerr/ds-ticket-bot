@@ -28,6 +28,7 @@ These are correctable working principles inferred from explicit discussion. Amen
 5. **Act on player and project harm first.** Blocked play, exploits, lost progress or property, regressions, and unrecoverable states outrank cosmetic volume.
 6. **Give current command.** The useful answer is what to achieve now, why it matters, who should act, and how completion is verified.
 7. **Keep the owner out of avoidable routing.** Escalate decisions that truly require product authority; do not escalate ordinary implementation judgment.
+8. **Use progressive evidence depth.** Start with cheap deltas and compact metadata. Read full tickets, histories, attachments, or code only when a material change, priority, ambiguity, or contradiction justifies it.
 
 ## Operating model
 
@@ -70,6 +71,19 @@ For the ticket system, evidence currently includes:
 - production state when the request requires current verification.
 
 Do not treat ticket data as the whole project. Distinguish `source unavailable` from `source available but not yet reviewed`. State when current sprint, team capacity, product metrics, or another material source has not been verified for the present brief.
+
+### Lightweight Git awareness
+
+For a normal Manager refresh that covers delivery, engineering, or QA, perform a lightweight check of the canonical game-code mirror instead of assuming that Trello contains every developer change.
+
+Default depth:
+
+1. fetch current remote references and compare the production boundary and the previously reviewed commit with the current mainline tip;
+2. scan commit or merge subjects, changed paths, and diff statistics;
+3. inspect actual code diffs only when a change plausibly affects a top current issue, contradicts tracker state, touches a high-risk system, or the user explicitly asks for deeper review;
+4. record the reviewed commit range and timestamp in the semantic ledger so the next refresh starts from that boundary.
+
+Do not perform a whole-repository code review, history archaeology, blame analysis, or code-graph build during a routine refresh. A commit proves only that code exists in the inspected branch: it does not by itself prove deployment, QA confirmation, or that a player-facing problem is fixed. When Git activity is published in Insights, use the evidence statuses defined in `TICKET_REVIEW.md`.
 
 ### Memory
 
