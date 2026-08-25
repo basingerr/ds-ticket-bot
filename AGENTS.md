@@ -251,10 +251,11 @@ The repository has a read-only, manually triggered developer review workflow. It
 When the user asks in Russian or English for a ticket overview, ticket review, priorities, what changed since the last analysis, recurring problems, frustration, or similar developer insight:
 
 1. Read `TICKET_REVIEW.md` completely.
-2. Run `npm run insights:export` locally, or `npm run insights:export:prod` on the VDS when the current production data is only available there.
-3. Use the newest immutable snapshot in `exports/ticket-review/`. For a delta review, compare the two newest snapshots.
-4. Analyze the evidence and answer using the report contract in `TICKET_REVIEW.md`.
-5. Keep the workflow read-only. Never move cards, add comments, change labels, archive items, or write to Discord unless the user explicitly asks for that separate action.
+2. Before an expensive refresh, use The Manager's conversational intake to confirm the intended outcome, evidence depth, audience, and any publishing authorization that the request has not already established.
+3. Run `npm run insights:export` locally, or `npm run insights:export:prod` on the VDS when the current production data is only available there. Default to pulse; use deep or baseline only under the conditions in `TICKET_REVIEW.md`.
+4. Analyze the newest `review-bundle-*.json` first and reuse exact-hash records from `reports/the-manager/ticket-source-cache.json`. Open the complete immutable snapshot only for necessary evidence. For a raw delta audit, compare the two compatible snapshots.
+5. Analyze the evidence and answer using the report contract in `TICKET_REVIEW.md`.
+6. Keep the workflow read-only. Never move cards, add comments, change labels, archive items, or write to Discord unless the user explicitly asks for that separate action.
 
 Useful trigger phrases include:
 

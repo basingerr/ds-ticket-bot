@@ -2,8 +2,17 @@ import Database from "better-sqlite3";
 import dotenv from "dotenv";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { basename, resolve } from "node:path";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
+import {
+  buildReviewBundle,
+  ensureSemanticSourceCache,
+  loadSemanticSourceCache,
+  type ExportedTicketCard,
+  type TicketReviewSnapshot,
+} from "./ticketReviewArtifacts.js";
 
 dotenv.config();
 
@@ -64,7 +73,17 @@ type TicketLinkRow = {
 type ParsedArgs = {
   closedDays: number;
   actionLimit: number;
+  mode: "pulse" | "deep" | "baseline";
 };
+
+type PreviousSnapshot = TicketReviewSnapshot & {
+  source?: TicketReviewSnapshot["source"] & {
+    trelloBoardId?: string;
+    actionLimit?: number;
+  };
+};
+
+const gzipAsync = promisify(gzip);
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -89,9 +108,16 @@ function numericArg(name: string, fallback: number, min: number, max: number): n
 }
 
 function parseArgs(): ParsedArgs {
+  const modeArgument = process.argv.slice(2).find((arg) => arg.startsWith("--mode="))?.slice("--mode=".length);
+  const fullAlias = process.argv.slice(2).includes("--full");
+  const mode = fullAlias ? "baseline" : (modeArgument ?? "pulse");
+  if (mode !== "pulse" && mode !== "deep" && mode !== "baseline") {
+    throw new Error("--mode must be pulse, deep, or baseline");
+  }
   return {
     closedDays: numericArg("closed-days", 30, 0, 3650),
     actionLimit: numericArg("action-limit", 200, 1, 1000),
+    mode,
   };
 }
 
@@ -265,11 +291,66 @@ function stableHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+function cardSourceRevision(card: TrelloCardResponse): string {
+  return stableHash({
+    name: card.name,
+    description: card.desc ?? "",
+    listId: card.idList,
+    closed: card.closed ?? false,
+    dueComplete: card.dueComplete ?? false,
+    dateLastActivity: card.dateLastActivity,
+    labels: [...(card.labels ?? [])].sort((left, right) => left.id.localeCompare(right.id)),
+  });
+}
+
+function previousCardSourceRevision(card: ExportedTicketCard): string {
+  if (typeof card.sourceRevision === "string" && card.sourceRevision) {
+    return card.sourceRevision;
+  }
+  return stableHash({
+    name: card.name,
+    description: card.description,
+    listId: card.list.id,
+    closed: card.closed,
+    dueComplete: card.dueComplete,
+    dateLastActivity: card.dateLastActivity,
+    labels: [...card.labels].sort((left, right) => left.id.localeCompare(right.id)),
+  });
+}
+
+async function loadLatestCompatibleSnapshot(exportDir: string, actionLimit: number): Promise<{ name: string; snapshot: PreviousSnapshot } | null> {
+  if (!existsSync(exportDir)) {
+    return null;
+  }
+  const names = (await readdir(exportDir))
+    .filter((name) => /^snapshot-.*\.json$/u.test(name))
+    .sort((left, right) => right.localeCompare(left));
+  for (const name of names) {
+    try {
+      const snapshot = JSON.parse(await readFile(resolve(exportDir, name), "utf8")) as PreviousSnapshot;
+      if (snapshot.schemaVersion === 4
+        && snapshot.source?.trelloBoardId === trelloBoardId
+        && snapshot.source?.actionLimit === actionLimit
+        && Array.isArray(snapshot.cards)) {
+        return { name, snapshot };
+      }
+    } catch (error) {
+      console.warn(`Skipping unreadable prior snapshot ${name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return null;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs();
   const generatedAt = new Date();
   const closedCutoff = new Date(generatedAt.getTime() - args.closedDays * 86_400_000);
   const linksByCardId = loadTicketLinks();
+  const exportDir = resolve(process.cwd(), "exports", "ticket-review");
+  await mkdir(exportDir, { recursive: true });
+  const previousSnapshot = args.mode === "baseline"
+    ? null
+    : await loadLatestCompatibleSnapshot(exportDir, args.actionLimit);
 
   const [lists, allCards] = await Promise.all([
     trelloGet<TrelloList[]>(`/boards/${encodeURIComponent(trelloBoardId)}/lists`, {
@@ -288,15 +369,22 @@ async function main(): Promise<void> {
     return state === "active"
       || (args.closedDays > 0 && Date.parse(card.dateLastActivity) >= closedCutoff.getTime());
   });
-  const actionsByCardId = await loadCardActions(cards, args.actionLimit);
+  const previousByCardId = new Map((previousSnapshot?.snapshot.cards ?? []).map((card) => [card.id, card]));
+  const cardsNeedingActions = cards.filter((card) => {
+    const previous = previousByCardId.get(card.id);
+    return !previous || previousCardSourceRevision(previous) !== cardSourceRevision(card);
+  });
+  const actionsByCardId = await loadCardActions(cardsNeedingActions, args.actionLimit);
 
-  const exportedCards = cards.map((card) => {
+  const exportedCards: ExportedTicketCard[] = cards.map((card) => {
     const actions = actionsByCardId.get(card.id) ?? [];
+    const previous = previousByCardId.get(card.id);
+    const reusedActionHistory = previous && !actionsByCardId.has(card.id) ? previous : null;
     const link = linksByCardId.get(card.id) ?? null;
     const list = listsById.get(card.idList);
     const state = reviewState(card, list?.name ?? "Unknown");
     const discordUrl = descriptionField(card.desc ?? "", "Ссылка");
-    const comments = actions
+    const comments = reusedActionHistory?.comments ?? actions
       .filter((action) => action.type === "commentCard" && action.data?.text)
       .map((action) => ({
         id: action.id,
@@ -307,7 +395,7 @@ async function main(): Promise<void> {
         text: action.data?.text ?? "",
       }))
       .sort((left, right) => left.date.localeCompare(right.date));
-    const statusHistory = actions
+    const statusHistory = reusedActionHistory?.statusHistory ?? actions
       .filter((action) => action.type === "updateCard" && action.data?.listBefore && action.data?.listAfter)
       .map((action) => ({
         date: action.date,
@@ -344,6 +432,7 @@ async function main(): Promise<void> {
       dueComplete: card.dueComplete ?? false,
       labels: card.labels ?? [],
       dateLastActivity: card.dateLastActivity,
+      sourceRevision: cardSourceRevision(card),
       staleDays: daysBetween(card.dateLastActivity, generatedAt),
       ageDays: link ? daysBetween(link.created_at, generatedAt) : null,
       discord: {
@@ -374,7 +463,8 @@ async function main(): Promise<void> {
       .sort((left, right) => left.localeCompare(right))
       .map((name) => [name, exportedCards.filter((card) => card.list.name === name).length]),
   );
-  const snapshot = {
+  const captureMode = previousSnapshot ? "incremental" : "baseline";
+  const snapshot: TicketReviewSnapshot = {
     schemaVersion: 4,
     generatedAt: generatedAt.toISOString(),
     source: {
@@ -383,6 +473,11 @@ async function main(): Promise<void> {
       closedDays: args.closedDays,
       actionLimit: args.actionLimit,
       readOnly: true,
+      requestedDepth: args.mode,
+      captureMode,
+      baselineSnapshot: previousSnapshot?.name ?? null,
+      reusedActionHistories: cards.length - cardsNeedingActions.length,
+      fetchedActionHistories: cardsNeedingActions.length,
     },
     summary: {
       exportedCards: exportedCards.length,
@@ -399,13 +494,31 @@ async function main(): Promise<void> {
     cards: exportedCards,
   };
 
-  const exportDir = resolve(process.cwd(), "exports", "ticket-review");
-  await mkdir(exportDir, { recursive: true });
   const timestamp = generatedAt.toISOString().replace(/[:.]/g, "-");
   const outputPath = resolve(exportDir, `snapshot-${timestamp}.json`);
-  await writeFile(outputPath, `${JSON.stringify(snapshot, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+  const serializedSnapshot = `${JSON.stringify(snapshot, null, 2)}\n`;
+  await writeFile(outputPath, serializedSnapshot, { encoding: "utf8", flag: "wx" });
+  const gzipPath = `${outputPath}.gz`;
+  await writeFile(gzipPath, await gzipAsync(Buffer.from(serializedSnapshot, "utf8")), { flag: "wx" });
+
+  const semanticCachePath = resolve(process.cwd(), "reports", "the-manager", "ticket-source-cache.json");
+  await ensureSemanticSourceCache(semanticCachePath);
+  const semanticCache = await loadSemanticSourceCache(semanticCachePath);
+  const bundle = buildReviewBundle({
+    current: snapshot,
+    previous: previousSnapshot?.snapshot ?? null,
+    currentSnapshotName: basename(outputPath),
+    previousSnapshotName: previousSnapshot?.name ?? null,
+    depth: args.mode,
+    cache: semanticCache,
+  });
+  const bundlePath = resolve(exportDir, `review-bundle-${timestamp}.json`);
+  await writeFile(bundlePath, `${JSON.stringify(bundle, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
 
   console.log(`Ticket review snapshot written: ${outputPath}`);
+  console.log(`Compressed snapshot written: ${gzipPath}`);
+  console.log(`Manager review bundle written: ${bundlePath}`);
+  console.log(`Capture: ${captureMode}; action histories fetched: ${cardsNeedingActions.length}; reused: ${cards.length - cardsNeedingActions.length}`);
   console.log(`Cards: ${snapshot.summary.exportedCards} (${snapshot.summary.activeCards} active, ${snapshot.summary.recentDoneCards} recent done, ${snapshot.summary.recentArchivedCards} recent archived)`);
   console.log(`Linked to Discord: ${snapshot.summary.linkedCards}; stale active 14d+: ${snapshot.summary.staleActiveCards14Days}; QA needs-work: ${snapshot.summary.qaNeedsWorkEvents}; failed-retest signals: ${snapshot.summary.failedRetestSignals}; reopens: ${snapshot.summary.reopenEvents}`);
 }

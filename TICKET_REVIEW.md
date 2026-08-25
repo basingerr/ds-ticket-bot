@@ -18,15 +18,29 @@ Run:
 npm run insights:export
 ```
 
+The default is `--mode=pulse`. Use `--mode=deep` when all active records in scope should be included in the analysis bundle, and `--mode=baseline` (or `--full`) only when histories must be fetched again without reuse.
+
 On the production VDS after a build:
 
 ```bash
 npm run insights:export:prod
 ```
 
-The exporter writes a new immutable file to `exports/ticket-review/`. It includes all active cards plus cards completed or archived within the last 30 days. Trello cards left unarchived in a final list such as `Готово` are still treated as done. Override the history window with `--closed-days=60`. Limit fetched actions per card with `--action-limit=100` when needed.
+The exporter writes three immutable artifacts to `exports/ticket-review/`:
+
+- `snapshot-*.json` — the complete authoritative snapshot;
+- `snapshot-*.json.gz` — the same snapshot compressed for transfer;
+- `review-bundle-*.json` — compact, sanitized analysis input selected by evidence depth.
+
+It includes all active cards plus cards completed or archived within the last 30 days. Trello cards left unarchived in a final list such as `Готово` are still treated as done. Override the history window with `--closed-days=60`. Limit fetched actions per card with `--action-limit=100` when needed.
+
+In pulse and deep modes, the exporter reads the newest compatible snapshot, compares a cheap Trello source revision, reuses unchanged action histories, and fetches actions only for new or changed cards. It still writes a complete new snapshot. A different board, schema, or action limit forces a fresh baseline automatically.
 
 Never delete or overwrite earlier snapshots. They are the baseline for delta reviews. Compare snapshots only when their `schemaVersion` values match; after an exporter schema change, the first new snapshot becomes a fresh baseline.
+
+Analyze `review-bundle-*.json` first. It removes Discord identity boilerplate and attachment URLs, identifies new, changed, moved, reopened, and newly stale records, and reports exact-hash semantic-cache hits. Open the full snapshot only when the compact evidence is ambiguous, high impact, or insufficient for diagnosis.
+
+Compact per-card meaning lives in ignored `reports/the-manager/ticket-source-cache.json`. After reviewing a record, replace its cache entry with the current `contentHash`, concise meaning, classification, subsystem, cluster, evidence quality, recovery behavior, needs-info question, and review timestamp. Never copy raw ticket text into this cache.
 
 ## Publishing the team page
 

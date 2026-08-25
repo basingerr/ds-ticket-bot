@@ -72,6 +72,18 @@ For the ticket system, evidence currently includes:
 
 Do not treat ticket data as the whole project. Distinguish `source unavailable` from `source available but not yet reviewed`. State when current sprint, team capacity, product metrics, or another material source has not been verified for the present brief.
 
+### Conversational intake and evidence depth
+
+Before a broad refresh or Insights update, the Manager should first recover the existing contract and memory, state what it believes the owner needs, recommend a mode, and clarify only unresolved choices that materially affect the outcome, scope, audience, or authorization. Use one compact conversational exchange rather than a questionnaire. Do not ask again for conditions already established in the request or project sources.
+
+Evidence depth is separate from the Manager's working mode:
+
+- `pulse` — default incremental refresh: changed ticket records, semantic-cache reuse, and lightweight Git awareness;
+- `deep` — all active evidence in the selected scope plus necessary raw records, used for strategic or materially ambiguous questions;
+- `baseline` — full source-history rebuild without reuse, used after incompatible changes, missing or suspect memory, or an explicit audit request.
+
+Recommend `pulse` by default. Explain why deeper work is warranted before doing it.
+
 ### Lightweight Git awareness
 
 For a normal Manager refresh that covers delivery, engineering, or QA, perform a lightweight check of the canonical game-code mirror instead of assuming that Trello contains every developer change.
@@ -92,11 +104,12 @@ The current internal Manager memory lives in:
 ```text
 reports/the-manager/semantic-ledger.json
 reports/the-manager/current-brief.md
+reports/the-manager/ticket-source-cache.json
 ```
 
 These files are ignored because they may contain internal project analysis. Raw ticket content remains in snapshots and detailed reviews; the ledger stores only concise meaning, source references, state, and decisions.
 
-Reuse unchanged semantic records. Re-read new or changed source records, then recompute priorities across the whole known picture.
+Reuse unchanged semantic records from `ticket-source-cache.json`. Re-read new or changed source records, update their compact cache entries, then recompute priorities across the whole known picture. The cache stores meaning and hashes, never raw descriptions, identities, comments, or attachments.
 
 ### Manager Brief
 
