@@ -1,5 +1,9 @@
 # Agents context: ds-ticket-bot
 
+Canonical local checkout: `C:\Games\_main\GTAV_Rejoin\ds-ticket-bot`.
+
+`C:\Users\qwert\OneDrive\Documents\New project\ds-ticket-bot` is a stale legacy copy. Never use it for current analysis, implementation, deployment, or Manager memory. If the working directory differs from the canonical checkout, resolve the project path before concluding that a file or feature is missing.
+
 ## What this project is
 
 Small production bridge between Discord Forum tickets and an internal Trello board.
@@ -216,9 +220,8 @@ sudo systemctl start ds-ticket-bot-backup.service
 
 ## What not to build without explicit request
 
-- Tester dashboard
-- Web UI
-- Analytics
+- A second ticket dashboard or separate Manager UI. Extend the existing private `/insights` surface only when explicitly requested.
+- Write actions from Insights into Trello, Discord, production, or project documents.
 - SLA
 - Roles and moderation system
 - AI classification
@@ -227,19 +230,9 @@ sudo systemctl start ds-ticket-bot-backup.service
 - File downloading/proxying
 - Auto-parsing tester replies like "ok / not ok"
 
-## Sensible backlog
+## Backlog
 
-High value:
-
-- Add bot-owned reactions to the starter post or status message, without deleting user reactions.
-- Add reconciliation job every 5-10 minutes to recover from missed webhooks.
-- Add explicit Trello list mapping for the real Russian board statuses if the team wants public wording different from Trello list names.
-
-Lower priority:
-
-- `/ticket-info` command.
-- Docker packaging, only if the server standardizes on Docker.
-- Better structured logs or log rotation.
+Trello and the current Manager Brief are the operational backlog. Do not preserve a static feature backlog in this file: it becomes stale and can contradict already shipped behavior.
 
 ## Principle
 

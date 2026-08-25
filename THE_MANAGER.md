@@ -45,14 +45,31 @@ Team actions and owner decisions
 
 ### Evidence
 
-Use the freshest relevant sources available. For the ticket system these currently include:
+Use the freshest relevant sources available. Rejoin spans several working roots; the current repository is not the whole project.
+
+Canonical project sources:
+
+- shared project documentation: https://drive.google.com/drive/folders/19ABDsaG3jlOVvR903kMtqhvuS-xZ5Lbl
+- main GDD: https://docs.google.com/document/d/14pej7j41Z51RIqYdqSVdO8OnaT3bVhhExWVDjGDx8wo/edit?usp=drive_link
+- RoadMap: https://docs.google.com/document/d/1H6x9Pkkr9RzbKy-4XTlUlyfpNDAbSkMjrHqRLSxVt9k/edit?usp=drive_link
+- project tables: https://drive.google.com/drive/folders/1ceE_k3aHxjGtmpOrZ77GRrRAYYwynE_5
+- local game-design context and current decisions: `C:\Users\qwert\OneDrive\Documents\GTA5 Developer`
+- current main game-code mirror: `C:\Users\qwert\OneDrive\Documents\GTA5 Developer\external\rejoin-server`
+- ticket bot, QA Insights, and Manager memory: `C:\Games\_main\GTAV_Rejoin\ds-ticket-bot`
+- local GateMP client/runtime: `C:\Games\_main\GTAV_Rejoin\app`
+
+The copy at `C:\Users\qwert\OneDrive\Documents\New project\ds-ticket-bot` is legacy and must not be used as evidence or edited.
+
+Before declaring a source absent or unavailable, check the relevant canonical root above. Use the Drive folder as navigation, then open only the document required by the current decision. Do not treat an old local brief as proof of current external state.
+
+For the ticket system, evidence currently includes:
 
 - immutable snapshots in `exports/ticket-review/`;
 - full semantic reviews in `reports/ticket-review/`;
 - project code, `README.md`, `AGENTS.md`, and `TICKET_REVIEW.md`;
 - production state when the request requires current verification.
 
-Do not treat ticket data as the whole project. State when roadmap, current sprint, team capacity, product metrics, or another material source is absent.
+Do not treat ticket data as the whole project. Distinguish `source unavailable` from `source available but not yet reviewed`. State when current sprint, team capacity, product metrics, or another material source has not been verified for the present brief.
 
 ### Memory
 
