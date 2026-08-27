@@ -17,6 +17,10 @@
     "insights:export:prod": "node dist/insights/exportTicketReview.js",
     "insights:test": "tsx --test src/insights/*.test.ts",
     "insights:deaths-context": "tsx scripts/generateDeathMapContext.ts",
+    "insights:map-context": "tsx scripts/generateMapContext.ts",
+    "insights:vehicle-catalog": "tsx scripts/generateVehicleCatalog.ts",
+    "insights:vehicle-images": "tsx scripts/fetchVehicleImages.ts",
+    "insights:preview": "tsx scripts/insightsPreview.ts",
     "trello:webhook": "tsx src/trello/manageWebhook.ts",
     "trello:webhook:prod": "node dist/trello/manageWebhook.js"
   },

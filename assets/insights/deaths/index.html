@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="dark">
   <title>Death Map · Rejoin Insights</title>
   <link rel="stylesheet" href="/insights/deaths/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/insights/nav.css">
   <link rel="stylesheet" href="/insights/deaths/styles.css">
 </head>
 <body>
@@ -15,8 +16,8 @@
       <a class="brand" href="/insights"><span class="brand-mark">R</span><span>Rejoin Insights</span></a>
       <div class="topbar-divider"></div>
       <div class="page-title"><span class="eyebrow">Spatial analytics</span><strong>Death Map</strong></div>
+      <div data-insights-nav></div>
       <div class="top-actions">
-        <a class="secondary-button qa-link" href="/insights">QA Pulse</a>
         <button class="secondary-button" id="export-button" type="button">Экспорт PNG</button>
       </div>
     </header>
@@ -89,6 +90,7 @@
       </div>
     </section>
   </main>
+  <script src="/insights/nav.js"></script>
   <script src="/insights/deaths/vendor/leaflet/leaflet.js"></script>
   <script src="/insights/deaths/vendor/leaflet-heat.js"></script>
   <script src="/insights/deaths/vendor/html2canvas.min.js"></script>

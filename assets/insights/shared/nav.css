@@ -1,0 +1,10 @@
+/* Shared Insights top navigation. Palette-independent (fixed colors) so it looks
+   right on both the yellow-accent map pages and the blue-accent report page. */
+.insights-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.insights-tabs a{text-decoration:none;color:#8d96a3;font-size:13px;font-weight:650;padding:7px 10px;border-radius:8px;white-space:nowrap;border:1px solid transparent;transition:.12s ease}
+.insights-tabs a:hover{color:#f4f6f8;background:rgba(255,255,255,.06)}
+.insights-tabs>a.is-current{color:#f4f6f8;border-color:rgba(255,255,255,.16)}
+.insights-tabs .tab-group{display:inline-flex;gap:2px;padding:2px;border:1px solid rgba(255,255,255,.16);border-radius:10px}
+.insights-tabs .tab-group a{padding:6px 12px;border-radius:8px}
+.insights-tabs .tab-group a.is-current{background:rgba(255,255,255,.12);color:#fff}
+@media(max-width:560px){.insights-tabs{gap:4px}.insights-tabs a{padding:6px 8px;font-size:12px}}

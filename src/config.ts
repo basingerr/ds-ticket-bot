@@ -141,5 +141,9 @@ export const config = {
     deathsDataPath: optional("INSIGHTS_DEATHS_DATA_PATH", "./exports/death-insights/result.json"),
     deathsTilesPath: optional("INSIGHTS_DEATHS_TILES_PATH", "./exports/death-insights/atlas"),
     deathsContextPath: optional("INSIGHTS_DEATHS_CONTEXT_PATH", "./exports/death-insights/map-context.json"),
+    mapContextPath: optional("INSIGHTS_MAP_CONTEXT_PATH", "./exports/map-insights/map-context.json"),
+    mapTilesPath: optional("INSIGHTS_MAP_TILES_PATH", optional("INSIGHTS_DEATHS_TILES_PATH", "./exports/death-insights/atlas")),
+    vehicleCatalogPath: optional("INSIGHTS_VEHICLE_CATALOG_PATH", "./exports/vehicle-catalog/vehicle-catalog.json"),
+    vehicleImgPath: optional("INSIGHTS_VEHICLE_IMG_PATH", "./exports/vehicle-catalog/img"),
   },
 };

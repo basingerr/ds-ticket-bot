@@ -172,6 +172,52 @@ Generate `map-context.json` from a local checkout of `rejoin-server`:
 npm run insights:deaths-context -- --source=/path/to/rejoin-server --output=./exports/death-insights/map-context.json
 ```
 
+Content map:
+
+```text
+GET /insights/map
+```
+
+Same HTTP Basic authentication as `/insights`. Shows player-facing content (jobs,
+services, vehicle shops, housing, activities, factions, public transport) on the HD
+GTA map, with category filters, search, a synced list, safe/police zone layers, and
+`?cat=`/`?poi=` deep links. It reuses the death-map atlas tiles
+(`INSIGHTS_MAP_TILES_PATH`, defaults to the death atlas dir) and reads a sanitized
+`schemaVersion: 2` context from `INSIGHTS_MAP_CONTEXT_PATH`. Criminal and
+organization locations are excluded by the generator. Regenerate the context from a
+local `rejoin-server` checkout:
+
+```bash
+npm run insights:map-context -- --source=/path/to/rejoin-server --output=./exports/map-insights/map-context.json
+```
+
+Vehicle dealership catalog:
+
+```text
+GET /insights/dealership
+```
+
+Same HTTP Basic authentication. Card grid with vehicle preview images, class / seats
+/ top speed + handling stat bars, click-to-copy spawn model, salon pills, search,
+sort, custom/vanilla and dev-filter chips, a per-model modal (all salons + prices,
+full stats), and a collapsible dev-analytics panel (placeholder-handling customs,
+multi-salon models, price/speed extremes per class, class summary, missing data).
+Deep links `?salon/q/sort/origin/class/flags` and `#shop-<id>` anchors — the content
+map's salon markers link here. Reads a sanitized `schemaVersion: 1` file from
+`INSIGHTS_VEHICLE_CATALOG_PATH`. Regenerate from a local `rejoin-server` checkout,
+then fetch the vanilla preview images (custom `rejoin_*` models have no upstream art
+and fall back to a placeholder):
+
+```bash
+npm run insights:vehicle-catalog -- --source=/path/to/rejoin-server --output=./exports/vehicle-catalog/vehicle-catalog.json
+npm run insights:vehicle-images
+```
+
+Images are downloaded once from docs.fivem.net into `INSIGHTS_VEHICLE_IMG_PATH` and
+served from there, so the strict Insights CSP is unchanged.
+
+Design plan and roadmap: [`docs/insights-content-map-plan.md`](./docs/insights-content-map-plan.md).
+
 Project command mode is documented in [`THE_MANAGER.md`](./THE_MANAGER.md). “The Manager” combines current evidence, accumulated semantic memory, and owner decision principles to answer what matters and what the team should do next on any day. Its working ledger and briefs stay in ignored `reports/the-manager/`; it does not replace Trello or add an automated management service.
 
 Health endpoint:

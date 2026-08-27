@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Карта контента Rejoin: работы, сервисы, транспорт, жильё, активности">
+  <meta name="color-scheme" content="dark">
+  <title>Карта контента · Rejoin Insights</title>
+  <link rel="stylesheet" href="/insights/map/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/insights/nav.css">
+  <link rel="stylesheet" href="/insights/map/styles.css">
+</head>
+<body>
+  <main class="insights-shell">
+    <header class="topbar">
+      <a class="brand" href="/insights"><span class="brand-mark">R</span><span>Rejoin Insights</span></a>
+      <div class="topbar-divider"></div>
+      <div class="page-title"><span class="eyebrow">Content atlas</span><strong>Карта контента</strong></div>
+      <div data-insights-nav></div>
+      <div class="top-actions">
+        <button class="secondary-button" id="export-button" type="button">Экспорт PNG</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="control-panel">
+        <div class="panel-head">
+          <div><span class="eyebrow">Источник</span><strong id="source-name">Серверный контекст</strong></div>
+          <span class="live-dot" id="data-status" aria-label="Данные загружены"></span>
+        </div>
+        <p class="error-message" id="error-message" role="alert" hidden></p>
+
+        <div class="metric-grid">
+          <div><span>POI видно</span><strong id="metric-visible">0</strong></div>
+          <div><span>Категорий</span><strong id="metric-categories">0</strong></div>
+          <div><span>Зоны</span><strong id="metric-zones">0</strong></div>
+        </div>
+
+        <div class="control-group">
+          <label for="search-input">Поиск</label>
+          <input id="search-input" type="search" placeholder="Название точки…" autocomplete="off">
+        </div>
+
+        <div class="control-group cause-list" id="category-list">
+          <div class="category-head">
+            <span class="control-label">Категории</span>
+            <button type="button" id="category-toggle-all" class="link-button">Сбросить</button>
+          </div>
+        </div>
+
+        <div class="control-group layer-controls">
+          <span class="control-label">Зоны</span>
+          <label><span><strong>Safe-зоны</strong><small>Безопасные территории и старты работ</small></span><input id="safe-toggle" type="checkbox"></label>
+          <label><span><strong>Полиция</strong><small>Полицейские участки</small></span><input id="police-toggle" type="checkbox"></label>
+        </div>
+
+        <div class="control-group hotspots-panel">
+          <div class="hotspots-head"><span class="control-label">Список точек</span><small id="list-count">0</small></div>
+          <ol class="hotspots-list" id="poi-list" aria-live="polite"><li class="empty-hotspot">Нет данных</li></ol>
+        </div>
+
+        <div class="control-group map-actions">
+          <button id="reset-view" type="button">Показать всю карту</button>
+          <small>Колесо — масштаб · мышь — перемещение</small>
+        </div>
+      </aside>
+
+      <div class="map-panel" id="map-panel">
+        <div class="map-status"><span>HD Atlas · 16K</span><span id="map-count">0 точек</span></div>
+        <div id="map" class="map-canvas" aria-label="Карта контента Rejoin на карте GTA V"></div>
+      </div>
+    </section>
+  </main>
+  <script src="/insights/nav.js"></script>
+  <script src="/insights/map/vendor/leaflet/leaflet.js"></script>
+  <script src="/insights/map/vendor/html2canvas.min.js"></script>
+  <script src="/insights/map/core.js"></script>
+  <script src="/insights/map/app.js"></script>
+</body>
+</html>

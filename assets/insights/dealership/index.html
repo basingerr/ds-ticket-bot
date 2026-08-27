@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Каталог автосалонов Rejoin: модели, цены, характеристики">
+  <meta name="color-scheme" content="dark">
+  <title>Автосалоны · Rejoin Insights</title>
+  <link rel="stylesheet" href="/insights/nav.css">
+  <link rel="stylesheet" href="/insights/dealership/styles.css">
+</head>
+<body>
+  <main class="insights-shell">
+    <header class="topbar">
+      <a class="brand" href="/insights"><span class="brand-mark">R</span><span>Rejoin Insights</span></a>
+      <div class="topbar-divider"></div>
+      <div class="page-title"><span class="eyebrow">Vehicle catalog</span><strong>Автосалоны</strong></div>
+      <div data-insights-nav></div>
+    </header>
+
+    <section class="page-body">
+      <p class="error-message" id="error-message" role="alert" hidden></p>
+      <div class="statline" id="statline"></div>
+
+      <div class="toolbar" id="salons" hidden></div>
+      <div class="toolbar" id="controls" hidden>
+        <input type="search" id="search-input" placeholder="Название или spawn-модель…" autocomplete="off">
+        <select id="sort">
+          <option value="price-asc">Цена ↑</option>
+          <option value="price-desc">Цена ↓</option>
+          <option value="speed-desc">Скорость ↓</option>
+          <option value="name-asc">Название</option>
+          <option value="class">Класс</option>
+        </select>
+        <button class="pill mini" id="density" type="button">Крупнее</button>
+      </div>
+      <div class="filters2" id="filters2" hidden></div>
+
+      <details class="analytics" id="analytics">
+        <summary>Аналитика для разработчиков</summary>
+        <div class="analytics-body" id="analytics-body"></div>
+      </details>
+
+      <div class="grid" id="grid"></div>
+      <p class="loading" id="loading">Загрузка каталога…</p>
+      <div class="noresults" id="noresults" hidden>Ничего не найдено</div>
+    </section>
+  </main>
+
+  <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
+  <script src="/insights/nav.js"></script>
+  <script src="/insights/dealership/app.js"></script>
+</body>
+</html>
