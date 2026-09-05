@@ -1,7 +1,7 @@
 import { Client } from "discord.js";
 import { isBotReadonly } from "./botMode.js";
 import { config } from "./config.js";
-import { disableReconciliationForMissingDiscordThread, listReconciliableTicketLinks, updateStatus, type TicketLink } from "./db/ticketLinks.js";
+import { disableReconciliationForMissingDiscordThread, listDueTicketLinks, deferReconciliation, updateStatus, type TicketLink } from "./db/ticketLinks.js";
 import { applyStatusReaction } from "./discord/statusReaction.js";
 import { upsertCompletedStatusMessage, upsertManualCloseStatusMessage, upsertStatusMessage } from "./discord/statusMessage.js";
 import { applyStatusTag } from "./discord/threadTags.js";
@@ -61,7 +61,9 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
     card = await getTrelloCardWithList(link.trelloCardId);
   } catch (error) {
     if (isTrelloNotFoundError(error)) {
-      return closeMissingTrelloCardThread(client, link);
+      const result = await closeMissingTrelloCardThread(client, link);
+      deferReconciliation(link.id, Date.now() + 24 * 60 * 60_000);
+      return result;
     }
 
     throw error;
@@ -69,6 +71,8 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
 
   const status = statusFromTrelloList(card.idList, card.listName);
   const shouldBeArchived = card.dueComplete || card.closed;
+  const fresh = Date.now() - Date.parse(link.createdAt) < 7 * 86_400_000;
+  deferReconciliation(link.id, Date.now() + (shouldBeArchived ? 24 * 60 : fresh ? 30 : 6 * 60) * 60_000);
 
   let channel;
   try {
@@ -155,47 +159,59 @@ async function reconcileTicketLink(client: Client, link: TicketLink): Promise<"u
   return changed ? "updated" : "unchanged";
 }
 
+let reconciliationRunning = false;
+
 export async function runReconciliation(client: Client): Promise<void> {
   if (isBotReadonly()) {
     logger.warn("reconciliation skipped: bot readonly");
     return;
   }
 
-  const links = listReconciliableTicketLinks();
-  let updated = 0;
-  let unchanged = 0;
-  let skipped = 0;
-  let failed = 0;
+  if (reconciliationRunning) return;
+  reconciliationRunning = true;
+  try {
+    const links = listDueTicketLinks(Date.now());
+    let updated = 0;
+    let unchanged = 0;
+    let skipped = 0;
+    let failed = 0;
 
-  for (const link of links) {
-    try {
-      const result = await reconcileTicketLink(client, link);
+    for (const link of links) {
+      if (isBotReadonly()) break;
+      deferReconciliation(link.id, Date.now() + 15 * 60_000);
+      try {
+        const result = await reconcileTicketLink(client, link);
 
-      if (result === "updated") {
-        updated += 1;
-      } else if (result === "skipped") {
-        skipped += 1;
-      } else {
-        unchanged += 1;
+        if (result === "updated") {
+          updated += 1;
+        } else if (result === "skipped") {
+          skipped += 1;
+        } else {
+          unchanged += 1;
+        }
+      } catch (error) {
+        failed += 1;
+        deferReconciliation(link.id, Date.now() + 15 * 60_000);
+        logger.error("error", {
+          discord_thread_id: link.discordThreadId,
+          trello_card_id: link.trelloCardId,
+          action: "reconcile_ticket_link",
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
-    } catch (error) {
-      failed += 1;
-      logger.error("error", {
-        discord_thread_id: link.discordThreadId,
-        trello_card_id: link.trelloCardId,
-        action: "reconcile_ticket_link",
-        error: error instanceof Error ? error.message : String(error),
-      });
     }
-  }
 
-  logger.info("reconciliation complete", {
-    checked: links.length,
-    updated,
-    unchanged,
-    skipped,
-    failed,
-  });
+    logger.info("reconciliation complete", {
+      selected: links.length,
+      checked: updated + unchanged + skipped + failed,
+      updated,
+      unchanged,
+      skipped,
+      failed,
+    });
+  } finally {
+    reconciliationRunning = false;
+  }
 }
 
 export function startReconciliationJob(client: Client): NodeJS.Timeout | null {

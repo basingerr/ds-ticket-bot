@@ -191,3 +191,21 @@ export function updateDiscordStatusMessageId(id: number, discordStatusMessageId:
 
   return link;
 }
+
+/** Reserve half the batch for fresh tickets; drain oldest due work with the rest. */
+export function listDueTicketLinks(now: number, limit = 40): TicketLink[] {
+  const recent = db.prepare(`SELECT * FROM ticket_links
+    WHERE reconcile_disabled_at IS NULL AND reconcile_after <= ? AND created_at >= ?
+    ORDER BY reconcile_after ASC, id DESC LIMIT ?`).all(
+      now, new Date(now - 7 * 86_400_000).toISOString(), Math.floor(limit / 2),
+    ) as TicketLinkRow[];
+  const due = db.prepare(`SELECT * FROM ticket_links
+    WHERE reconcile_disabled_at IS NULL AND reconcile_after <= ?
+    ORDER BY reconcile_after ASC, id ASC LIMIT ?`).all(now, limit) as TicketLinkRow[];
+  const rows = [...new Map([...recent, ...due].map(row => [row.id, row])).values()].slice(0, limit);
+  return rows.map(row => mapRow(row)!);
+}
+
+export function deferReconciliation(id: number, until: number): void {
+  db.prepare("UPDATE ticket_links SET reconcile_after = ? WHERE id = ?").run(until, id);
+}

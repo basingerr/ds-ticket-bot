@@ -1,4 +1,7 @@
+import { TrelloRequestQueue } from "./requestQueue.js";
 import { config } from "../config.js";
+
+const requestQueue = new TrelloRequestQueue();
 
 type TrelloCardResponse = {
   id: string;
@@ -89,7 +92,7 @@ function trelloUrl(path: string, params?: Record<string, string>): string {
 }
 
 async function trelloRequest<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await requestQueue.request(url, init);
 
   if (!response.ok) {
     const body = await response.text();
@@ -244,13 +247,20 @@ export async function getTrelloCard(cardId: string): Promise<TrelloCard> {
   };
 }
 
+const listCache = new Map<string, { name: string; expires: number }>();
+
 export async function getTrelloCardWithList(cardId: string): Promise<TrelloCardWithList> {
   const card = await trelloRequest<TrelloCardResponse>(
     trelloUrl(`/cards/${encodeURIComponent(cardId)}`, { fields: "id,idList,name,closed,dueComplete" }),
   );
-  const list = await trelloRequest<TrelloListResponse>(
-    trelloUrl(`/lists/${encodeURIComponent(card.idList)}`, { fields: "id,name" }),
-  );
+  let list = listCache.get(card.idList);
+  if (!list || list.expires <= Date.now()) {
+    const fetched = await trelloRequest<TrelloListResponse>(
+      trelloUrl(`/lists/${encodeURIComponent(card.idList)}`, { fields: "id,name" }),
+    );
+    list = { name: fetched.name, expires: Date.now() + 60_000 };
+    listCache.set(card.idList, list);
+  }
 
   return {
     id: card.id,
@@ -313,7 +323,7 @@ export async function createBoardWebhook(): Promise<TrelloWebhook> {
 }
 
 export async function deleteTrelloWebhook(webhookId: string): Promise<void> {
-  await fetch(trelloUrl(`/webhooks/${encodeURIComponent(webhookId)}`), {
+  await requestQueue.request(trelloUrl(`/webhooks/${encodeURIComponent(webhookId)}`), {
     method: "DELETE",
   }).then(async (response) => {
     if (!response.ok) {

@@ -321,6 +321,13 @@ export function createTrelloWebhookRouter(client: Client): Router {
       return;
     }
 
+    if (!findByTrelloCardId(trelloCardId)) return;
+
+    // Titles, descriptions, labels and other card edits do not change Discord status.
+    if (!listName && data?.old?.closed === undefined && data?.old?.dueComplete === undefined) {
+      return;
+    }
+
     try {
       const isClosed = await handleTrelloClosedState(client, trelloCardId);
       if (isClosed) {

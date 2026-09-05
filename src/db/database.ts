@@ -56,6 +56,10 @@ export function initDatabase(): void {
   const columns = db.prepare("PRAGMA table_info(ticket_links)").all() as Array<{ name: string }>;
   const columnNames = new Set(columns.map((column) => column.name));
 
+  if (!columnNames.has("reconcile_after")) {
+    db.exec("ALTER TABLE ticket_links ADD COLUMN reconcile_after INTEGER NOT NULL DEFAULT 0");
+  }
+
   if (!columnNames.has("discord_status_message_id")) {
     db.exec("ALTER TABLE ticket_links ADD COLUMN discord_status_message_id TEXT");
   }
